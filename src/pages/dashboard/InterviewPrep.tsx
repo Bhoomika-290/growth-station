@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { Mic, MapPin, Building, Target, MessageSquare, Presentation, ArrowRight, ArrowLeft, X, Send, CheckCircle, User, ChevronDown, ChevronUp, Shield, Brain, Heart, Eye, Sparkles, BookOpen } from 'lucide-react';
+import { Mic, MapPin, Building, Target, MessageSquare, Presentation, ArrowRight, ArrowLeft, X, Send, CheckCircle, User, ChevronDown, ChevronUp, Shield, Brain, Heart, Eye, Sparkles, BookOpen, Video, ExternalLink, Loader2 } from 'lucide-react';
+import { streamChat, type Msg } from '@/lib/ai';
 
 type Stage = 'overview' | 'job-target' | 'company-prep' | 'behavioral' | 'self-intro-form' | 'self-intro-practice' | 'self-intro-feedback' | 'rapid-fire' | 'mindset';
 
