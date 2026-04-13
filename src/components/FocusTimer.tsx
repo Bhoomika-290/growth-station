@@ -9,7 +9,8 @@ export function FocusTimerFAB() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover-scale animate-pulse-glow"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+        aria-label="Open Focus Timer"
       >
         <Timer className="w-6 h-6" />
       </button>
@@ -19,25 +20,54 @@ export function FocusTimerFAB() {
 }
 
 function FocusTimerModal({ onClose }: { onClose: () => void }) {
+  const [totalSeconds] = useState(25 * 60);
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const { boostRank, addFocusMinutes } = useStationStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (running && seconds > 0) {
-      intervalRef.current = setInterval(() => setSeconds((s) => s - 1), 1000);
-    } else if (seconds === 0 && running) {
-      setRunning(false);
-      boostRank(15);
-      addFocusMinutes(25);
+      intervalRef.current = setInterval(() => {
+        setSeconds((s) => {
+          if (s <= 1) {
+            setRunning(false);
+            setCompleted(true);
+            boostRank(15);
+            addFocusMinutes(25);
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, seconds, boostRank, addFocusMinutes]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [running, boostRank, addFocusMinutes]);
+
+  const handlePlayPause = () => {
+    if (completed) return;
+    setRunning((r) => !r);
+  };
+
+  const handleReset = () => {
+    setRunning(false);
+    setCompleted(false);
+    setSeconds(totalSeconds);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
 
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  const progress = ((25 * 60 - seconds) / (25 * 60)) * 100;
+  const progress = ((totalSeconds - seconds) / totalSeconds) * 100;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={onClose}>
@@ -57,14 +87,16 @@ function FocusTimerModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="flex justify-center gap-4">
-          <button onClick={() => setRunning(!running)} className="w-12 h-12 rounded-full bg-accent text-accent-foreground flex items-center justify-center hover-scale">
+          <button onClick={handlePlayPause} disabled={completed}
+            className="w-12 h-12 rounded-full bg-accent text-accent-foreground flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-40">
             {running ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
           </button>
-          <button onClick={() => { setRunning(false); setSeconds(25 * 60); }} className="w-12 h-12 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center hover-scale">
+          <button onClick={handleReset}
+            className="w-12 h-12 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center hover:scale-110 transition-transform">
             <RotateCcw className="w-5 h-5" />
           </button>
         </div>
-        {seconds === 0 && <p className="text-center mt-4 text-accent font-medium">Session complete! Rank boosted.</p>}
+        {completed && <p className="text-center mt-4 text-accent font-medium">Session complete! Rank boosted by 15.</p>}
       </div>
     </div>
   );

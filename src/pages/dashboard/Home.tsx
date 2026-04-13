@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Check, X, Brain } from 'lucide-react';
+import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Check, X, Brain, Trophy, Medal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
@@ -14,6 +14,31 @@ export default function Home() {
   const pct = Math.round(((totalStudents - rank) / totalStudents) * 100);
 
   const studentsToOvertake = useMemo(() => Math.floor(Math.random() * 40) + 20, []);
+
+  // Leaderboard data — user-specific rank placement
+  const leaderboard = useMemo(() => {
+    const names = domain === 'engineering'
+      ? ['Aarav S.', 'Priya M.', 'Rohit K.', 'Sneha J.', 'Vikram T.', 'Ananya R.', 'Karan P.', 'Neha G.']
+      : domain === 'commerce'
+      ? ['Deepak M.', 'Anjali S.', 'Mohit R.', 'Kavita P.', 'Suresh T.', 'Pooja L.', 'Rajesh K.', 'Divya N.']
+      : ['Meera S.', 'Arjun R.', 'Riya P.', 'Suresh K.', 'Kavita M.', 'Anil T.', 'Priti J.', 'Manish D.'];
+
+    const entries = names.map((name, i) => ({
+      name,
+      score: 950 - i * 47,
+      locality: user?.city || 'Your Area',
+    }));
+
+    // Insert user at their approximate position
+    const userPos = Math.min(Math.max(0, Math.floor((rank / totalStudents) * entries.length)), entries.length - 1);
+    entries.splice(userPos, 0, {
+      name: user?.name || 'You',
+      score: 950 - userPos * 47,
+      locality: user?.city || 'Your Area',
+    });
+
+    return entries.slice(0, 8);
+  }, [domain, rank, totalStudents, user]);
 
   const handleBoost = () => {
     setShowOvertake(true);
@@ -54,7 +79,7 @@ export default function Home() {
             <p className="text-3xl font-bold">Top {pct}%</p>
             <p className="text-xs text-muted-foreground mt-1">Rank #{rank} of {totalStudents} in {user?.city || 'your area'} for {config.label}</p>
           </div>
-          <button onClick={handleBoost} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover-scale flex items-center gap-1">
+          <button onClick={handleBoost} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-1">
             <Zap className="w-4 h-4" /> Boost my rank
           </button>
         </div>
@@ -65,7 +90,7 @@ export default function Home() {
 
         {showOvertake && (
           <div className="absolute inset-0 bg-accent/10 backdrop-blur-sm flex items-center justify-center animate-fade-in">
-            <div className="text-center animate-overtake">
+            <div className="text-center">
               <TrendingUp className="w-12 h-12 text-accent mx-auto mb-2" />
               <p className="text-lg font-bold">You overtook {studentsToOvertake} students!</p>
             </div>
@@ -106,6 +131,25 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Leaderboard */}
+      <div className="bg-card rounded-2xl border border-border p-6">
+        <h3 className="font-semibold mb-4 flex items-center gap-2"><Trophy className="w-4 h-4 text-accent" /> Leaderboard — {user?.city || 'Your Area'}</h3>
+        <div className="space-y-2">
+          {leaderboard.map((entry, i) => {
+            const isUser = entry.name === (user?.name || 'You');
+            return (
+              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl text-sm transition-all ${isUser ? 'bg-accent/10 border border-accent/30' : 'bg-muted/30'}`}>
+                <span className="w-6 text-center font-bold">
+                  {i === 0 ? <Medal className="w-4 h-4 text-accent mx-auto" /> : i === 1 ? <Medal className="w-4 h-4 text-muted-foreground mx-auto" /> : `#${i + 1}`}
+                </span>
+                <span className="flex-1 font-medium">{entry.name} {isUser && <span className="text-accent text-xs">(You)</span>}</span>
+                <span className="text-xs text-muted-foreground">{entry.score} pts</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* What are you studying today? */}
       <button onClick={() => setShowStudyPopup(true)}
         className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-accent/10 transition-all group">
@@ -142,8 +186,7 @@ export default function Home() {
       {/* Study Topic Popup */}
       {showStudyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={() => setShowStudyPopup(false)}>
-          <div className="bg-card rounded-2xl p-8 shadow-2xl w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}
-            style={{ perspective: '1000px', transform: 'rotateX(2deg)' }}>
+          <div className="bg-card rounded-2xl p-8 shadow-2xl w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold">What are you studying today?</h3>
               <button onClick={() => setShowStudyPopup(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
