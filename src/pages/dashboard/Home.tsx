@@ -1,25 +1,41 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Check } from 'lucide-react';
+import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Check, X, Brain } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
   const { domain, user, rank, totalStudents, streak, tasksDone, weeklyGoalProgress, boostRank, completeTask } = useStationStore();
   const config = domainConfig[domain];
+  const navigate = useNavigate();
   const [showOvertake, setShowOvertake] = useState(false);
   const [todoChecked, setTodoChecked] = useState<boolean[]>(Array(config.todoItems.length).fill(false));
+  const [showStudyPopup, setShowStudyPopup] = useState(false);
+  const [selectedStudyTopic, setSelectedStudyTopic] = useState('');
   const pct = Math.round(((totalStudents - rank) / totalStudents) * 100);
+
+  const studentsToOvertake = useMemo(() => Math.floor(Math.random() * 40) + 20, []);
 
   const handleBoost = () => {
     setShowOvertake(true);
-    boostRank(47);
+    boostRank(studentsToOvertake);
     setTimeout(() => setShowOvertake(false), 2000);
   };
 
   const toggleTodo = (i: number) => {
     const n = [...todoChecked];
-    n[i] = !n[i];
+    if (!n[i]) {
+      n[i] = true;
+      completeTask();
+    } else {
+      n[i] = false;
+    }
     setTodoChecked(n);
-    if (!todoChecked[i]) completeTask();
+  };
+
+  const handleStudySelect = (topic: string) => {
+    setSelectedStudyTopic(topic);
+    setShowStudyPopup(false);
+    navigate('/dashboard/vault');
   };
 
   return (
@@ -42,17 +58,16 @@ export default function Home() {
             <Zap className="w-4 h-4" /> Boost my rank
           </button>
         </div>
-        {/* Progress bar */}
         <div className="h-3 bg-muted rounded-full overflow-hidden">
           <div className="h-full bg-accent rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
         </div>
-        <p className="text-xs text-muted-foreground mt-2">Complete 2 more tasks to overtake 47 students</p>
+        <p className="text-xs text-muted-foreground mt-2">Complete 2 more tasks to overtake {studentsToOvertake} students</p>
 
         {showOvertake && (
           <div className="absolute inset-0 bg-accent/10 backdrop-blur-sm flex items-center justify-center animate-fade-in">
             <div className="text-center animate-overtake">
               <TrendingUp className="w-12 h-12 text-accent mx-auto mb-2" />
-              <p className="text-lg font-bold">You overtook 47 students!</p>
+              <p className="text-lg font-bold">You overtook {studentsToOvertake} students!</p>
             </div>
           </div>
         )}
@@ -62,12 +77,12 @@ export default function Home() {
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: Flame, label: 'Streak', value: `${streak} days`, color: 'text-accent' },
-            { icon: CheckCircle, label: 'Tasks Done', value: String(tasksDone), color: 'text-accent' },
-            { icon: Target, label: 'Weekly Goal', value: `${weeklyGoalProgress}%`, color: 'text-accent' },
+            { icon: Flame, label: 'Streak', value: `${streak} days` },
+            { icon: CheckCircle, label: 'Tasks Done', value: String(tasksDone) },
+            { icon: Target, label: 'Weekly Goal', value: `${weeklyGoalProgress}%` },
           ].map((s) => (
             <div key={s.label} className="bg-card rounded-xl border border-border p-4 text-center">
-              <s.icon className={`w-5 h-5 mx-auto mb-1 ${s.color}`} />
+              <s.icon className="w-5 h-5 mx-auto mb-1 text-accent" />
               <p className="text-lg font-bold">{s.value}</p>
               <p className="text-[11px] text-muted-foreground">{s.label}</p>
             </div>
@@ -91,6 +106,19 @@ export default function Home() {
         </div>
       </div>
 
+      {/* What are you studying today? */}
+      <button onClick={() => setShowStudyPopup(true)}
+        className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-accent/10 transition-all group">
+        <div className="w-12 h-12 rounded-xl bg-accent/20 text-accent flex items-center justify-center group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
+          <Brain className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="font-semibold">What are you studying today?</p>
+          <p className="text-xs text-muted-foreground">{selectedStudyTopic || 'Click to pick a topic and we\'ll personalize your session'}</p>
+        </div>
+        <ChevronRight className="w-5 h-5 text-accent ml-auto" />
+      </button>
+
       {/* Today's To-Do */}
       <div className="bg-card rounded-2xl border border-border p-6">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -108,7 +136,30 @@ export default function Home() {
             </button>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground mt-3">{todoChecked.filter(Boolean).length}/{config.todoItems.length} tasks completed today</p>
       </div>
+
+      {/* Study Topic Popup */}
+      {showStudyPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={() => setShowStudyPopup(false)}>
+          <div className="bg-card rounded-2xl p-8 shadow-2xl w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}
+            style={{ perspective: '1000px', transform: 'rotateX(2deg)' }}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold">What are you studying today?</h3>
+              <button onClick={() => setShowStudyPopup(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {config.quizPopupOptions.map((opt) => (
+                <button key={opt} onClick={() => handleStudySelect(opt)}
+                  className="p-4 rounded-xl border border-border text-sm font-medium text-left transition-all hover:border-accent hover:bg-accent/5 hover:-translate-y-1 hover:shadow-md">
+                  <Brain className="w-4 h-4 text-accent mb-2" />
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
