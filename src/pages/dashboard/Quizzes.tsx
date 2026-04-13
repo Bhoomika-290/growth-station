@@ -1,98 +1,105 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { Brain, Zap, Clock, Star, Shield, X, ArrowRight, CheckCircle, XCircle, Timer } from 'lucide-react';
+import { Brain, Zap, Clock, Star, Shield, X, ArrowRight, CheckCircle, XCircle, Timer, ArrowLeft } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 
 const quizIcons = [Zap, Clock, Brain, Star, Shield];
 
-// Domain-specific question banks
+// Difficulty levels
+type Difficulty = 'basic' | 'medium' | 'hard';
+
+interface Q { q: string; options: string[]; correct: number; difficulty: Difficulty; company?: string; }
+
+// Extended question banks with difficulty levels
 const questionBank: Record<string, { iq: Q[]; eq: Q[]; rq: Q[] }> = {
   engineering: {
     iq: [
-      { q: 'What is the time complexity of binary search?', options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'], correct: 1 },
-      { q: 'Which data structure uses FIFO?', options: ['Stack', 'Queue', 'Tree', 'Graph'], correct: 1 },
-      { q: 'What is 2^10?', options: ['512', '1024', '2048', '256'], correct: 1 },
-      { q: 'Which sorting algorithm has best average case?', options: ['Bubble Sort', 'Selection Sort', 'Merge Sort', 'Insertion Sort'], correct: 2 },
-      { q: 'A binary tree with n nodes has how many edges?', options: ['n', 'n-1', 'n+1', '2n'], correct: 1 },
+      { q: 'What is the time complexity of binary search?', options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'], correct: 1, difficulty: 'basic' },
+      { q: 'Which data structure uses FIFO?', options: ['Stack', 'Queue', 'Tree', 'Graph'], correct: 1, difficulty: 'basic' },
+      { q: 'What is 2^10?', options: ['512', '1024', '2048', '256'], correct: 1, difficulty: 'basic' },
+      { q: 'Which sorting algorithm has best average case?', options: ['Bubble Sort', 'Selection Sort', 'Merge Sort', 'Insertion Sort'], correct: 2, difficulty: 'medium' },
+      { q: 'A binary tree with n nodes has how many edges?', options: ['n', 'n-1', 'n+1', '2n'], correct: 1, difficulty: 'medium' },
+      { q: 'What is the amortized time for dynamic array insertion?', options: ['O(n)', 'O(1)', 'O(log n)', 'O(n²)'], correct: 1, difficulty: 'hard', company: 'Google' },
+      { q: 'Detect cycle in directed graph using?', options: ['BFS', 'DFS + coloring', 'Dijkstra', 'Union Find'], correct: 1, difficulty: 'hard', company: 'Amazon' },
+      { q: 'LRU Cache uses which data structures?', options: ['Array + Stack', 'HashMap + DLL', 'Tree + Queue', 'Graph + Heap'], correct: 1, difficulty: 'hard', company: 'Microsoft' },
     ],
     eq: [
-      { q: 'Your teammate pushes buggy code before a demo. You:', options: ['Fix it quietly', 'Call them out publicly', 'Report to manager', 'Discuss privately after'], correct: 3 },
-      { q: 'You disagree with the tech lead\'s architecture. You:', options: ['Just follow orders', 'Present data-backed alternative', 'Complain to others', 'Refuse to implement'], correct: 1 },
-      { q: 'A junior dev is struggling. You:', options: ['Let them figure it out', 'Pair program with them', 'Do their work', 'Tell the manager'], correct: 1 },
-      { q: 'Deadline is tomorrow but code has bugs. You:', options: ['Ship anyway', 'Ask for extension with clear reasoning', 'Pull all-nighter alone', 'Blame QA'], correct: 1 },
-      { q: 'You receive harsh code review feedback. You:', options: ['Get defensive', 'Ignore it', 'Learn from it and improve', 'Complain to HR'], correct: 2 },
+      { q: 'Your teammate pushes buggy code before a demo. You:', options: ['Fix it quietly', 'Call them out publicly', 'Report to manager', 'Discuss privately after'], correct: 3, difficulty: 'basic' },
+      { q: "You disagree with the tech lead's architecture. You:", options: ['Just follow orders', 'Present data-backed alternative', 'Complain to others', 'Refuse to implement'], correct: 1, difficulty: 'medium' },
+      { q: 'A junior dev is struggling. You:', options: ['Let them figure it out', 'Pair program with them', 'Do their work', 'Tell the manager'], correct: 1, difficulty: 'basic' },
+      { q: 'Deadline is tomorrow but code has bugs. You:', options: ['Ship anyway', 'Ask for extension with clear reasoning', 'Pull all-nighter alone', 'Blame QA'], correct: 1, difficulty: 'medium' },
+      { q: 'You receive harsh code review feedback. You:', options: ['Get defensive', 'Ignore it', 'Learn from it and improve', 'Complain to HR'], correct: 2, difficulty: 'basic' },
     ],
     rq: [
-      { q: 'What does REST stand for?', options: ['Remote Execution Service Tool', 'Representational State Transfer', 'Reliable Server Technology', 'Resource Extraction Standard'], correct: 1 },
-      { q: 'Which protocol does HTTPS use for encryption?', options: ['SSH', 'TLS/SSL', 'FTP', 'SMTP'], correct: 1 },
-      { q: 'What is Docker primarily used for?', options: ['Version control', 'Containerization', 'Testing', 'Deployment only'], correct: 1 },
-      { q: 'SQL JOIN that returns all rows from both tables?', options: ['INNER JOIN', 'LEFT JOIN', 'FULL OUTER JOIN', 'CROSS JOIN'], correct: 2 },
-      { q: 'What is CI/CD?', options: ['Code Integration/Code Delivery', 'Continuous Integration/Continuous Delivery', 'Central Intelligence/Central Data', 'Code Inspection/Code Debug'], correct: 1 },
+      { q: 'What does REST stand for?', options: ['Remote Execution Service Tool', 'Representational State Transfer', 'Reliable Server Technology', 'Resource Extraction Standard'], correct: 1, difficulty: 'basic' },
+      { q: 'Which protocol does HTTPS use for encryption?', options: ['SSH', 'TLS/SSL', 'FTP', 'SMTP'], correct: 1, difficulty: 'basic' },
+      { q: 'What is Docker primarily used for?', options: ['Version control', 'Containerization', 'Testing', 'Deployment only'], correct: 1, difficulty: 'medium' },
+      { q: 'SQL JOIN that returns all rows from both tables?', options: ['INNER JOIN', 'LEFT JOIN', 'FULL OUTER JOIN', 'CROSS JOIN'], correct: 2, difficulty: 'medium' },
+      { q: 'What is CI/CD?', options: ['Code Integration/Code Delivery', 'Continuous Integration/Continuous Delivery', 'Central Intelligence/Central Data', 'Code Inspection/Code Debug'], correct: 1, difficulty: 'basic' },
+      { q: 'What is eventual consistency in distributed systems?', options: ['All nodes always in sync', 'Nodes may differ temporarily', 'Data never syncs', 'Only leader has data'], correct: 1, difficulty: 'hard', company: 'Amazon' },
     ],
   },
   commerce: {
     iq: [
-      { q: 'If a product costs ₹400 and sells for ₹500, profit % is?', options: ['20%', '25%', '30%', '15%'], correct: 1 },
-      { q: 'Simple Interest on ₹1000 at 10% for 2 years?', options: ['₹100', '₹200', '₹210', '₹150'], correct: 1 },
-      { q: 'A train 200m long crosses a pole in 10s. Speed?', options: ['20 m/s', '72 km/h', 'Both A and B', '36 km/h'], correct: 2 },
-      { q: 'Average of first 10 natural numbers?', options: ['5', '5.5', '6', '4.5'], correct: 1 },
-      { q: 'If A:B = 2:3 and B:C = 4:5, then A:C = ?', options: ['8:15', '2:5', '4:5', '6:10'], correct: 0 },
+      { q: 'If a product costs ₹400 and sells for ₹500, profit % is?', options: ['20%', '25%', '30%', '15%'], correct: 1, difficulty: 'basic' },
+      { q: 'Simple Interest on ₹1000 at 10% for 2 years?', options: ['₹100', '₹200', '₹210', '₹150'], correct: 1, difficulty: 'basic' },
+      { q: 'A train 200m long crosses a pole in 10s. Speed?', options: ['20 m/s', '72 km/h', 'Both A and B', '36 km/h'], correct: 2, difficulty: 'medium' },
+      { q: 'Average of first 10 natural numbers?', options: ['5', '5.5', '6', '4.5'], correct: 1, difficulty: 'basic' },
+      { q: 'If A:B = 2:3 and B:C = 4:5, then A:C = ?', options: ['8:15', '2:5', '4:5', '6:10'], correct: 0, difficulty: 'medium' },
+      { q: 'Compound interest on ₹10000 at 10% for 2 years?', options: ['₹2000', '₹2100', '₹2200', '₹1900'], correct: 1, difficulty: 'hard', company: 'SBI PO' },
     ],
     eq: [
-      { q: 'A customer is angry about a service delay. You:', options: ['Argue with them', 'Listen empathetically and resolve', 'Ignore them', 'Pass to someone else'], correct: 1 },
-      { q: 'You notice a colleague making accounting errors. You:', options: ['Report immediately to boss', 'Help them identify and fix', 'Ignore it', 'Tell other colleagues'], correct: 1 },
-      { q: 'Your bank has a new policy you disagree with. You:', options: ['Refuse to follow', 'Follow and provide feedback through proper channel', 'Complain publicly', 'Quit'], correct: 1 },
-      { q: 'A senior gives you credit for their work. You:', options: ['Accept it', 'Clarify the truth respectfully', 'Tell everyone', 'Stay silent'], correct: 1 },
-      { q: 'You are overloaded with work before an exam. You:', options: ['Skip the exam', 'Prioritize and manage time', 'Do everything poorly', 'Blame your workload'], correct: 1 },
+      { q: 'A customer is angry about a service delay. You:', options: ['Argue with them', 'Listen empathetically and resolve', 'Ignore them', 'Pass to someone else'], correct: 1, difficulty: 'basic' },
+      { q: 'You notice a colleague making accounting errors. You:', options: ['Report immediately to boss', 'Help them identify and fix', 'Ignore it', 'Tell other colleagues'], correct: 1, difficulty: 'medium' },
+      { q: 'Your bank has a new policy you disagree with. You:', options: ['Refuse to follow', 'Follow and provide feedback through proper channel', 'Complain publicly', 'Quit'], correct: 1, difficulty: 'medium' },
+      { q: 'A senior gives you credit for their work. You:', options: ['Accept it', 'Clarify the truth respectfully', 'Tell everyone', 'Stay silent'], correct: 1, difficulty: 'basic' },
+      { q: 'You are overloaded with work before an exam. You:', options: ['Skip the exam', 'Prioritize and manage time', 'Do everything poorly', 'Blame your workload'], correct: 1, difficulty: 'basic' },
     ],
     rq: [
-      { q: 'What is the full form of NABARD?', options: ['National Bank for Agriculture and Rural Development', 'National Board of Agricultural Research', 'National Bureau of Audit and Revenue', 'None of these'], correct: 0 },
-      { q: 'Current SLR requirement by RBI is approximately?', options: ['4%', '18%', '23%', '10%'], correct: 1 },
-      { q: 'What is KYC?', options: ['Keep Your Cash', 'Know Your Customer', 'Key Yield Certificate', 'Knowledge Yearly Check'], correct: 1 },
-      { q: 'RTGS minimum transfer amount?', options: ['₹1 lakh', '₹2 lakh', '₹50,000', 'No minimum'], correct: 1 },
-      { q: 'What is NPA in banking?', options: ['New Profit Account', 'Non-Performing Asset', 'National Payment Authority', 'Net Payable Amount'], correct: 1 },
+      { q: 'What is the full form of NABARD?', options: ['National Bank for Agriculture and Rural Development', 'National Board of Agricultural Research', 'National Bureau of Audit and Revenue', 'None of these'], correct: 0, difficulty: 'basic' },
+      { q: 'Current SLR requirement by RBI is approximately?', options: ['4%', '18%', '23%', '10%'], correct: 1, difficulty: 'medium' },
+      { q: 'What is KYC?', options: ['Keep Your Cash', 'Know Your Customer', 'Key Yield Certificate', 'Knowledge Yearly Check'], correct: 1, difficulty: 'basic' },
+      { q: 'RTGS minimum transfer amount?', options: ['₹1 lakh', '₹2 lakh', '₹50,000', 'No minimum'], correct: 1, difficulty: 'medium' },
+      { q: 'What is NPA in banking?', options: ['New Profit Account', 'Non-Performing Asset', 'National Payment Authority', 'Net Payable Amount'], correct: 1, difficulty: 'basic' },
     ],
   },
   arts: {
     iq: [
-      { q: 'How many schedules are in the Indian Constitution?', options: ['8', '10', '12', '14'], correct: 2 },
-      { q: 'The Tropic of Cancer passes through how many Indian states?', options: ['6', '7', '8', '9'], correct: 2 },
-      { q: 'Who was the first President of India?', options: ['Jawaharlal Nehru', 'Rajendra Prasad', 'S. Radhakrishnan', 'Zakir Hussain'], correct: 1 },
-      { q: 'Article 21 of the Constitution deals with?', options: ['Right to Education', 'Right to Life and Liberty', 'Right to Equality', 'Right to Freedom of Speech'], correct: 1 },
-      { q: 'The Battle of Plassey was fought in which year?', options: ['1757', '1764', '1857', '1947'], correct: 0 },
+      { q: 'How many schedules are in the Indian Constitution?', options: ['8', '10', '12', '14'], correct: 2, difficulty: 'basic' },
+      { q: 'The Tropic of Cancer passes through how many Indian states?', options: ['6', '7', '8', '9'], correct: 2, difficulty: 'medium' },
+      { q: 'Who was the first President of India?', options: ['Jawaharlal Nehru', 'Rajendra Prasad', 'S. Radhakrishnan', 'Zakir Hussain'], correct: 1, difficulty: 'basic' },
+      { q: 'Article 21 of the Constitution deals with?', options: ['Right to Education', 'Right to Life and Liberty', 'Right to Equality', 'Right to Freedom of Speech'], correct: 1, difficulty: 'basic' },
+      { q: 'The Battle of Plassey was fought in which year?', options: ['1757', '1764', '1857', '1947'], correct: 0, difficulty: 'basic' },
+      { q: 'The concept of "Basic Structure" doctrine came from which case?', options: ['Golaknath', 'Kesavananda Bharati', 'Minerva Mills', 'Maneka Gandhi'], correct: 1, difficulty: 'hard', company: 'UPSC' },
     ],
     eq: [
-      { q: 'As a district magistrate, a flood hits. First priority?', options: ['File report to HQ', 'Organize immediate rescue', 'Wait for orders', 'Call press conference'], correct: 1 },
-      { q: 'A local politician pressures you to bend rules. You:', options: ['Comply to avoid conflict', 'Politely refuse citing rules', 'Report to media', 'Transfer the case'], correct: 1 },
-      { q: 'Two communities are in conflict in your district. You:', options: ['Support the majority', 'Impose curfew immediately', 'Initiate dialogue between leaders', 'Wait for state orders'], correct: 2 },
-      { q: 'A whistleblower reports corruption in your office. You:', options: ['Suppress it', 'Investigate independently', 'Transfer the whistleblower', 'Ignore it'], correct: 1 },
-      { q: 'You discover your senior officer is corrupt. You:', options: ['Join them', 'Document evidence and report', 'Ignore it', 'Resign'], correct: 1 },
+      { q: 'As a district magistrate, a flood hits. First priority?', options: ['File report to HQ', 'Organize immediate rescue', 'Wait for orders', 'Call press conference'], correct: 1, difficulty: 'basic' },
+      { q: 'A local politician pressures you to bend rules. You:', options: ['Comply to avoid conflict', 'Politely refuse citing rules', 'Report to media', 'Transfer the case'], correct: 1, difficulty: 'medium' },
+      { q: 'Two communities are in conflict in your district. You:', options: ['Support the majority', 'Impose curfew immediately', 'Initiate dialogue between leaders', 'Wait for state orders'], correct: 2, difficulty: 'hard' },
+      { q: 'A whistleblower reports corruption in your office. You:', options: ['Suppress it', 'Investigate independently', 'Transfer the whistleblower', 'Ignore it'], correct: 1, difficulty: 'medium' },
+      { q: 'You discover your senior officer is corrupt. You:', options: ['Join them', 'Document evidence and report', 'Ignore it', 'Resign'], correct: 1, difficulty: 'basic' },
     ],
     rq: [
-      { q: 'UPSC Prelims has how many papers?', options: ['1', '2', '3', '4'], correct: 1 },
-      { q: 'Ethics paper in UPSC Mains is which paper?', options: ['GS Paper I', 'GS Paper II', 'GS Paper III', 'GS Paper IV'], correct: 3 },
-      { q: 'Which amendment is called Mini Constitution?', options: ['42nd', '44th', '73rd', '86th'], correct: 0 },
-      { q: 'Panchayati Raj was constitutionalized by which amendment?', options: ['42nd', '73rd', '74th', '86th'], correct: 1 },
-      { q: 'What is the age limit for UPSC Civil Services (General)?', options: ['30', '32', '35', '28'], correct: 1 },
+      { q: 'UPSC Prelims has how many papers?', options: ['1', '2', '3', '4'], correct: 1, difficulty: 'basic' },
+      { q: 'Ethics paper in UPSC Mains is which paper?', options: ['GS Paper I', 'GS Paper II', 'GS Paper III', 'GS Paper IV'], correct: 3, difficulty: 'medium' },
+      { q: 'Which amendment is called Mini Constitution?', options: ['42nd', '44th', '73rd', '86th'], correct: 0, difficulty: 'medium' },
+      { q: 'Panchayati Raj was constitutionalized by which amendment?', options: ['42nd', '73rd', '74th', '86th'], correct: 1, difficulty: 'basic' },
+      { q: 'What is the age limit for UPSC Civil Services (General)?', options: ['30', '32', '35', '28'], correct: 1, difficulty: 'basic' },
     ],
   },
 };
 
-interface Q {
-  q: string;
-  options: string[];
-  correct: number;
-}
-
-type QuizPhase = 'select' | 'topic' | 'playing' | 'results';
+type QuizPhase = 'select' | 'difficulty' | 'topic' | 'playing' | 'results';
 type QuizSection = 'iq' | 'eq' | 'rq';
 
 export default function Quizzes() {
-  const { domain, boostRank } = useStationStore();
+  const { domain, boostRank, setQuizScores, language } = useStationStore();
   const config = domainConfig[domain];
+  const isHi = language === 'hi';
   const [phase, setPhase] = useState<QuizPhase>('select');
   const [selectedQuiz, setSelectedQuiz] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('basic');
   const [currentSection, setCurrentSection] = useState<QuizSection>('iq');
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<QuizSection, number[]>>({ iq: [], eq: [], rq: [] });
@@ -102,24 +109,34 @@ export default function Quizzes() {
   const [scores, setScores] = useState({ iq: 0, eq: 0, rq: 0 });
 
   const questions = questionBank[domain] || questionBank.engineering;
-  const sectionQuestions = questions[currentSection];
+  
+  // Filter by difficulty
+  const filteredQuestions = {
+    iq: questions.iq.filter(q => q.difficulty === selectedDifficulty || selectedDifficulty === 'hard'),
+    eq: questions.eq.filter(q => q.difficulty === selectedDifficulty || q.difficulty === 'basic'),
+    rq: questions.rq.filter(q => q.difficulty === selectedDifficulty || selectedDifficulty === 'hard'),
+  };
+
+  // Ensure minimum 3 questions per section
+  const sectionQuestions = filteredQuestions[currentSection].length >= 3 ? filteredQuestions[currentSection] : questions[currentSection].slice(0, 5);
   const currentQuestion = sectionQuestions[currentQ];
-  const sectionLabels: Record<QuizSection, string> = { iq: 'IQ — Analytical', eq: 'EQ — Situational', rq: 'RQ — Domain Knowledge' };
+  const sectionLabels: Record<QuizSection, string> = { iq: isHi ? 'IQ — विश्लेषणात्मक' : 'IQ — Analytical', eq: isHi ? 'EQ — स्थितिजन्य' : 'EQ — Situational', rq: isHi ? 'RQ — डोमेन ज्ञान' : 'RQ — Domain Knowledge' };
   const sections: QuizSection[] = ['iq', 'eq', 'rq'];
 
-  // Timer
   useEffect(() => {
     if (phase !== 'playing' || showFeedback) return;
-    if (timeLeft <= 0) {
-      handleAnswer(-1);
-      return;
-    }
+    if (timeLeft <= 0) { handleAnswer(-1); return; }
     const t = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
     return () => clearTimeout(t);
   }, [timeLeft, phase, showFeedback]);
 
   const startQuiz = (quizType: string) => {
     setSelectedQuiz(quizType);
+    setPhase('difficulty');
+  };
+
+  const selectDifficulty = (d: Difficulty) => {
+    setSelectedDifficulty(d);
     setPhase('topic');
   };
 
@@ -130,32 +147,25 @@ export default function Quizzes() {
     setCurrentQ(0);
     setAnswers({ iq: [], eq: [], rq: [] });
     setScores({ iq: 0, eq: 0, rq: 0 });
-    setTimeLeft(30);
+    setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
     setSelectedAnswer(null);
     setShowFeedback(false);
   };
 
   const handleAnswer = useCallback((ansIdx: number) => {
-    if (showFeedback) return;
+    if (showFeedback || !currentQuestion) return;
     setSelectedAnswer(ansIdx);
     setShowFeedback(true);
-
     const isCorrect = ansIdx === currentQuestion.correct;
-    if (isCorrect) {
-      setScores(prev => ({ ...prev, [currentSection]: prev[currentSection] + 1 }));
-    }
-
-    setAnswers(prev => ({
-      ...prev,
-      [currentSection]: [...prev[currentSection], ansIdx],
-    }));
+    if (isCorrect) setScores(prev => ({ ...prev, [currentSection]: prev[currentSection] + 1 }));
+    setAnswers(prev => ({ ...prev, [currentSection]: [...prev[currentSection], ansIdx] }));
 
     setTimeout(() => {
       if (currentQ < sectionQuestions.length - 1) {
         setCurrentQ(currentQ + 1);
         setSelectedAnswer(null);
         setShowFeedback(false);
-        setTimeLeft(30);
+        setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
       } else {
         const sIdx = sections.indexOf(currentSection);
         if (sIdx < 2) {
@@ -163,25 +173,26 @@ export default function Quizzes() {
           setCurrentQ(0);
           setSelectedAnswer(null);
           setShowFeedback(false);
-          setTimeLeft(30);
+          setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
         } else {
           setPhase('results');
-          boostRank(10);
+          boostRank(selectedDifficulty === 'hard' ? 25 : selectedDifficulty === 'medium' ? 15 : 10);
+          setQuizScores({ iq: scores.iq + (isCorrect && currentSection === 'iq' ? 1 : 0), eq: scores.eq + (isCorrect && currentSection === 'eq' ? 1 : 0), rq: scores.rq + (isCorrect && currentSection === 'rq' ? 1 : 0) });
         }
       }
     }, 1500);
-  }, [showFeedback, currentQ, currentSection, currentQuestion, sectionQuestions.length, sections, boostRank]);
+  }, [showFeedback, currentQ, currentSection, currentQuestion, sectionQuestions.length, sections, boostRank, selectedDifficulty, scores, setQuizScores]);
 
-  const totalQuestions = sectionQuestions.length * 3;
+  const totalQs = sectionQuestions.length * 3;
   const totalCorrect = scores.iq + scores.eq + scores.rq;
-  const gScore = Math.round((scores.iq / 5) * 100);
-  const mScore = Math.round((scores.rq / 5) * 100);
-  const aScore = Math.round((scores.eq / 5) * 100);
+  const gScore = Math.round((scores.iq / Math.max(1, sectionQuestions.length)) * 100);
+  const mScore = Math.round((scores.rq / Math.max(1, sectionQuestions.length)) * 100);
+  const aScore = Math.round((scores.eq / Math.max(1, sectionQuestions.length)) * 100);
 
   const radarData = [
-    { subject: 'Geometrical (IQ)', A: gScore },
-    { subject: 'Memory (RQ)', A: mScore },
-    { subject: 'Application (EQ)', A: aScore },
+    { subject: 'IQ', A: gScore },
+    { subject: 'RQ', A: mScore },
+    { subject: 'EQ', A: aScore },
   ];
 
   // Select quiz type
@@ -189,8 +200,8 @@ export default function Quizzes() {
     return (
       <div className="max-w-4xl space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold">Quizzes</h1>
-          <p className="text-sm text-muted-foreground">{config.label} — IQ + EQ + RQ assessment</p>
+          <h1 className="text-2xl font-bold">{isHi ? 'क्विज़' : 'Quizzes'}</h1>
+          <p className="text-sm text-muted-foreground">{isHi ? config.labelHi : config.label} — IQ + EQ + RQ</p>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {config.quizTypes.map((qt, i) => {
@@ -202,43 +213,51 @@ export default function Quizzes() {
                   <Icon className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-sm mb-1">{qt}</h3>
-                <p className="text-xs text-muted-foreground">15 questions · 3 sections (IQ/EQ/RQ)</p>
+                <p className="text-xs text-muted-foreground">3 sections · {isHi ? 'स्तर चुनें' : 'Choose level'}</p>
               </button>
             );
           })}
-        </div>
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-3">GMA Report Breakdown</h3>
-          <p className="text-xs text-muted-foreground mb-4">Complete a quiz to see your personalized GMA scores</p>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            {[
-              { letter: 'G', label: 'Geometrical / Spatial', desc: 'IQ questions' },
-              { letter: 'M', label: 'Memory / Analytical', desc: 'RQ questions' },
-              { letter: 'A', label: 'Application / EQ', desc: 'EQ questions' },
-            ].map((g) => (
-              <div key={g.letter} className="space-y-2">
-                <span className="text-2xl font-bold text-accent">{g.letter}</span>
-                <p className="text-[10px] text-muted-foreground">{g.label}</p>
-                <p className="text-[10px] text-muted-foreground">{g.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     );
   }
 
-  // Topic selection popup
+  // Difficulty selection
+  if (phase === 'difficulty') {
+    return (
+      <div className="max-w-lg mx-auto space-y-6 animate-fade-in">
+        <button onClick={() => setPhase('select')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> {isHi ? 'पीछे' : 'Back'}
+        </button>
+        <h2 className="text-xl font-bold text-center">{isHi ? 'स्तर चुनें' : 'Choose Difficulty'}</h2>
+        <p className="text-sm text-muted-foreground text-center">{selectedQuiz}</p>
+        <div className="grid gap-4">
+          {[
+            { d: 'basic' as Difficulty, label: isHi ? 'बेसिक' : 'Basic', desc: isHi ? '30 सेकंड प्रति प्रश्न · मूल बातें' : '30s per question · Fundamentals', color: 'text-accent' },
+            { d: 'medium' as Difficulty, label: isHi ? 'मध्यम' : 'Medium', desc: isHi ? '25 सेकंड · गहरी समझ' : '25s per question · Deeper understanding', color: 'text-accent' },
+            { d: 'hard' as Difficulty, label: isHi ? 'कठिन' : 'Hard', desc: isHi ? '20 सेकंड · कंपनी-विशिष्ट प्रश्न' : '20s per question · Company-specific questions', color: 'text-destructive' },
+          ].map(item => (
+            <button key={item.d} onClick={() => selectDifficulty(item.d)}
+              className="p-5 rounded-2xl border border-border bg-card text-left hover:border-accent/50 hover:shadow-md transition-all">
+              <p className={`font-bold text-lg ${item.color}`}>{item.label}</p>
+              <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Topic selection
   if (phase === 'topic') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={() => setPhase('select')}>
-        <div className="bg-card rounded-2xl p-8 shadow-2xl w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}
-          style={{ perspective: '1000px', transform: 'rotateX(2deg)' }}>
+        <div className="bg-card rounded-2xl p-8 shadow-2xl w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold">What are you studying today?</h3>
+            <h3 className="text-lg font-bold">{isHi ? 'विषय चुनें' : 'Choose Topic'}</h3>
             <button onClick={() => setPhase('select')} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">Quiz: {selectedQuiz}</p>
+          <p className="text-sm text-muted-foreground mb-4">{selectedQuiz} · {selectedDifficulty.toUpperCase()}</p>
           <div className="grid grid-cols-2 gap-3">
             {config.quizPopupOptions.map((opt) => (
               <button key={opt} onClick={() => startPlaying(opt)}
@@ -254,14 +273,14 @@ export default function Quizzes() {
   }
 
   // Quiz playing
-  if (phase === 'playing') {
-    const overallProgress = (sections.indexOf(currentSection) * 5 + currentQ) / 15 * 100;
+  if (phase === 'playing' && currentQuestion) {
+    const totalQsPlayed = sections.indexOf(currentSection) * sectionQuestions.length + currentQ;
+    const overallProgress = (totalQsPlayed / (sectionQuestions.length * 3)) * 100;
     return (
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">{selectedQuiz} · {selectedTopic}</p>
+            <p className="text-xs text-muted-foreground">{selectedQuiz} · {selectedDifficulty.toUpperCase()}</p>
             <h2 className="text-lg font-bold">{sectionLabels[currentSection]}</h2>
           </div>
           <div className="flex items-center gap-3">
@@ -272,19 +291,18 @@ export default function Quizzes() {
           </div>
         </div>
 
-        {/* Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Question {sections.indexOf(currentSection) * 5 + currentQ + 1} of 15</span>
-            <span>Section {sections.indexOf(currentSection) + 1}/3</span>
+            <span>Q{totalQsPlayed + 1}</span>
+            <span>{currentSection.toUpperCase()} {currentQ + 1}/{sectionQuestions.length}</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }} />
           </div>
         </div>
 
-        {/* Question */}
         <div className="bg-card rounded-2xl border border-border p-6">
+          {currentQuestion.company && <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full mb-2 inline-block">{isHi ? 'कंपनी' : 'Asked at'}: {currentQuestion.company}</span>}
           <p className="font-medium mb-6">{currentQuestion.q}</p>
           <div className="space-y-3">
             {currentQuestion.options.map((opt, oi) => {
@@ -292,12 +310,9 @@ export default function Quizzes() {
               if (showFeedback) {
                 if (oi === currentQuestion.correct) cls = 'border-accent bg-accent/10 text-accent';
                 else if (oi === selectedAnswer && oi !== currentQuestion.correct) cls = 'border-destructive bg-destructive/10 text-destructive';
-              } else if (selectedAnswer === oi) {
-                cls = 'border-accent bg-accent/5';
               }
               return (
-                <button key={oi} onClick={() => !showFeedback && handleAnswer(oi)}
-                  disabled={showFeedback}
+                <button key={oi} onClick={() => !showFeedback && handleAnswer(oi)} disabled={showFeedback}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl border text-sm text-left transition-all ${cls}`}>
                   <span className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
                     {String.fromCharCode(65 + oi)}
@@ -311,12 +326,11 @@ export default function Quizzes() {
           </div>
         </div>
 
-        {/* Score tracker */}
         <div className="flex gap-3">
           {sections.map((s) => (
             <div key={s} className={`flex-1 p-3 rounded-xl text-center text-xs ${s === currentSection ? 'bg-accent/10 border border-accent/30' : 'bg-muted'}`}>
               <p className="font-bold">{s.toUpperCase()}</p>
-              <p className="text-muted-foreground">{scores[s]}/{s === currentSection ? currentQ + (showFeedback ? 1 : 0) : (sections.indexOf(s) < sections.indexOf(currentSection) ? 5 : 0)}</p>
+              <p className="text-muted-foreground">{scores[s]}/{s === currentSection ? currentQ + (showFeedback ? 1 : 0) : (sections.indexOf(s) < sections.indexOf(currentSection) ? sectionQuestions.length : 0)}</p>
             </div>
           ))}
         </div>
@@ -328,17 +342,16 @@ export default function Quizzes() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       <div className="text-center">
-        <h1 className="text-2xl font-bold mb-2">Quiz Complete!</h1>
-        <p className="text-muted-foreground">{selectedQuiz} · {selectedTopic}</p>
+        <h1 className="text-2xl font-bold mb-2">{isHi ? 'क्विज़ पूर्ण!' : 'Quiz Complete!'}</h1>
+        <p className="text-muted-foreground">{selectedQuiz} · {selectedDifficulty.toUpperCase()}</p>
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-6 text-center">
-        <p className="text-4xl font-bold text-accent mb-2">{totalCorrect}/15</p>
-        <p className="text-sm text-muted-foreground">Overall Score: {Math.round((totalCorrect / 15) * 100)}%</p>
-        <p className="text-xs text-accent mt-2">Rank boosted by 10 positions!</p>
+        <p className="text-4xl font-bold text-accent mb-2">{totalCorrect}/{totalQs}</p>
+        <p className="text-sm text-muted-foreground">{Math.round((totalCorrect / Math.max(1, totalQs)) * 100)}%</p>
+        <p className="text-xs text-accent mt-2">{isHi ? `रैंक ${selectedDifficulty === 'hard' ? 25 : 10} पोजीशन बढ़ी!` : `Rank boosted by ${selectedDifficulty === 'hard' ? 25 : 10} positions!`}</p>
       </div>
 
-      {/* GMA Radar */}
       <div className="bg-card rounded-2xl border border-border p-6">
         <h3 className="font-semibold mb-4 text-center">GMA Report</h3>
         <ResponsiveContainer width="100%" height={250}>
@@ -350,12 +363,11 @@ export default function Quizzes() {
         </ResponsiveContainer>
       </div>
 
-      {/* Detailed scores */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { letter: 'G', label: 'Geometrical / IQ', score: gScore },
-          { letter: 'M', label: 'Memory / RQ', score: mScore },
-          { letter: 'A', label: 'Application / EQ', score: aScore },
+          { letter: 'G', label: 'IQ', score: gScore },
+          { letter: 'M', label: 'RQ', score: mScore },
+          { letter: 'A', label: 'EQ', score: aScore },
         ].map((g) => (
           <div key={g.letter} className="bg-card rounded-xl border border-border p-4 text-center">
             <span className="text-2xl font-bold text-accent">{g.letter}</span>
@@ -368,20 +380,8 @@ export default function Quizzes() {
         ))}
       </div>
 
-      {/* Weak zone */}
-      <div className="bg-accent/5 border border-accent/20 rounded-xl p-4">
-        <p className="text-sm font-medium mb-2">
-          Weak zone: {gScore <= mScore && gScore <= aScore ? 'Analytical Thinking (IQ)' : mScore <= aScore ? 'Domain Knowledge (RQ)' : 'Situational Judgment (EQ)'}
-        </p>
-        <ul className="text-xs text-muted-foreground space-y-1">
-          <li>1. Practice more {gScore <= mScore && gScore <= aScore ? 'logical reasoning' : mScore <= aScore ? config.vaultTopics[0] : 'case studies'} daily</li>
-          <li>2. Review incorrect answers and understand why</li>
-          <li>3. Take focused mini-quizzes on weak areas</li>
-        </ul>
-      </div>
-
       <button onClick={() => setPhase('select')} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale flex items-center justify-center gap-2">
-        <ArrowRight className="w-4 h-4" /> Take Another Quiz
+        <ArrowRight className="w-4 h-4" /> {isHi ? 'और क्विज़ लें' : 'Take Another Quiz'}
       </button>
     </div>
   );
