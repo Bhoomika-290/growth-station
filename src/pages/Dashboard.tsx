@@ -6,12 +6,8 @@ import { useStationStore } from '@/store/useStationStore';
 import { Timer } from 'lucide-react';
 
 export default function Dashboard() {
-  const { domain } = useStationStore();
-  const themeClass = domain === 'commerce' ? 'theme-commerce' : domain === 'arts' ? 'theme-arts' : '';
-
   return (
-    <div className={themeClass}>
-      <SidebarProvider>
+    <SidebarProvider>
         <div className="min-h-screen flex w-full">
           <AppSidebar />
           <div className="flex-1 flex flex-col">
