@@ -11,37 +11,31 @@ interface ResumeData {
   achievements: string[];
 }
 
-const templateStyles = {
-  Professional: { accent: 'border-l-4 border-accent', header: 'bg-primary text-primary-foreground' },
-  Technical: { accent: 'border-l-4 border-accent', header: 'bg-accent text-accent-foreground' },
-  Academic: { accent: 'border-l-4 border-muted-foreground', header: 'bg-muted text-foreground' },
-};
-
 export default function Resume() {
   const { domain, user } = useStationStore();
   const config = domainConfig[domain];
-  const [selectedTemplate, setSelectedTemplate] = useState('Professional');
+  const [selectedTemplate, setSelectedTemplate] = useState<'Classic' | 'Minimal' | 'Bold'>('Classic');
   const [showPreview, setShowPreview] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
   const [newSkill, setNewSkill] = useState('');
 
   const [resume, setResume] = useState<ResumeData>({
-    objective: `Motivated ${config.label} professional seeking opportunities in ${config.companies[0]} to apply skills in ${config.vaultTopics[0]} and ${config.vaultTopics[1]}.`,
-    education: [{ degree: user?.specialization || 'B.Tech Computer Science', college: user?.college || '', year: user?.year || 'Final Year', gpa: '' }],
-    skills: config.vaultTopics.slice(0, 4),
+    objective: '',
+    education: [{ degree: user?.specialization || '', college: user?.college || '', year: user?.year || '', gpa: '' }],
+    skills: [],
     experience: [{ title: '', company: '', duration: '', desc: '' }],
     projects: [{ name: '', desc: '', tech: '' }],
     achievements: [''],
   });
 
   const atsChecks = [
-    { ok: !!(user?.name), text: 'Contact info complete', tip: 'Add your full name in profile' },
-    { ok: resume.skills.length >= 3, text: 'Skills section (3+ skills)', tip: 'Add at least 3 relevant skills' },
-    { ok: resume.objective.length > 20, text: 'Career objective written', tip: 'Write a clear career objective' },
-    { ok: resume.education[0].college.length > 0, text: 'Education details filled', tip: 'Add your college information' },
-    { ok: resume.projects[0].name.length > 0, text: 'Projects section filled', tip: 'Add at least one project' },
-    { ok: resume.experience[0].title.length > 0, text: 'Experience/internship added', tip: 'Add work experience or internships' },
-    { ok: resume.achievements[0]?.length > 0, text: 'Achievements highlighted', tip: 'Add quantifiable achievements' },
+    { ok: !!(user?.name), text: 'Contact information', tip: 'Add your full name in profile' },
+    { ok: resume.skills.length >= 3, text: 'At least 3 skills listed', tip: 'Add relevant skills' },
+    { ok: resume.objective.length > 20, text: 'Career objective written', tip: 'Write a clear objective' },
+    { ok: resume.education[0].college.length > 0, text: 'Education details', tip: 'Add your college' },
+    { ok: resume.projects[0].name.length > 0, text: 'At least one project', tip: 'Add a project' },
+    { ok: resume.experience[0].title.length > 0, text: 'Experience or internship', tip: 'Add experience' },
+    { ok: (resume.achievements[0]?.length || 0) > 0, text: 'Achievements listed', tip: 'Add achievements' },
   ];
 
   const atsScore = Math.round((atsChecks.filter(c => c.ok).length / atsChecks.length) * 100);
@@ -63,14 +57,14 @@ export default function Resume() {
     <div className="max-w-4xl space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Resume & Portfolio</h1>
-          <p className="text-sm text-muted-foreground">Build a {config.label}-optimized resume</p>
+          <h1 className="text-2xl font-bold">Resume Builder</h1>
+          <p className="text-sm text-muted-foreground">Build your resume and check ATS readiness</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowBuilder(!showBuilder)} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover-scale flex items-center gap-2">
+          <button onClick={() => setShowBuilder(!showBuilder)} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-2">
             <FileText className="w-4 h-4" /> {showBuilder ? 'Hide Editor' : 'Edit Resume'}
           </button>
-          <button onClick={() => setShowPreview(true)} className="px-4 py-2 rounded-xl bg-muted text-foreground text-sm font-medium hover-scale flex items-center gap-2">
+          <button onClick={() => setShowPreview(true)} className="px-4 py-2 rounded-xl bg-muted text-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-2">
             <Eye className="w-4 h-4" /> Preview
           </button>
         </div>
@@ -79,10 +73,10 @@ export default function Resume() {
       {/* ATS Score */}
       <div className="bg-card rounded-2xl border border-border p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">ATS Readiness Score</h3>
-          <span className={`text-2xl font-bold ${atsScore >= 70 ? 'text-accent' : 'text-destructive'}`}>{atsScore}/100</span>
+          <h3 className="font-semibold">ATS Readiness</h3>
+          <span className={`text-2xl font-bold ${atsScore >= 70 ? 'text-accent' : 'text-destructive'}`}>{atsScore}%</span>
         </div>
-        <div className="h-3 bg-muted rounded-full overflow-hidden mb-4">
+        <div className="h-2 bg-muted rounded-full overflow-hidden mb-4">
           <div className={`h-full rounded-full transition-all ${atsScore >= 70 ? 'bg-accent' : 'bg-destructive'}`} style={{ width: `${atsScore}%` }} />
         </div>
         <div className="space-y-2">
@@ -99,35 +93,33 @@ export default function Resume() {
       {/* Resume Builder */}
       {showBuilder && (
         <div className="space-y-4 animate-fade-in">
-          {/* Objective */}
           <div className="bg-card rounded-xl border border-border p-4">
             <h4 className="font-medium text-sm mb-2">Career Objective</h4>
             <textarea value={resume.objective} onChange={(e) => setResume(prev => ({ ...prev, objective: e.target.value }))}
+              placeholder="Write a brief career objective in your own words..."
               className={`${inputClass} resize-none`} rows={3} />
           </div>
 
-          {/* Education */}
           <div className="bg-card rounded-xl border border-border p-4">
             <h4 className="font-medium text-sm mb-2">Education</h4>
             {resume.education.map((edu, i) => (
               <div key={i} className="grid grid-cols-2 gap-2 mb-2">
-                <input placeholder="Degree" value={edu.degree} onChange={(e) => {
+                <input placeholder="Degree / Program" value={edu.degree} onChange={(e) => {
                   const n = [...resume.education]; n[i] = { ...n[i], degree: e.target.value }; setResume(prev => ({ ...prev, education: n }));
                 }} className={inputClass} />
-                <input placeholder="College" value={edu.college} onChange={(e) => {
+                <input placeholder="College / University" value={edu.college} onChange={(e) => {
                   const n = [...resume.education]; n[i] = { ...n[i], college: e.target.value }; setResume(prev => ({ ...prev, education: n }));
                 }} className={inputClass} />
                 <input placeholder="Year" value={edu.year} onChange={(e) => {
                   const n = [...resume.education]; n[i] = { ...n[i], year: e.target.value }; setResume(prev => ({ ...prev, education: n }));
                 }} className={inputClass} />
-                <input placeholder="GPA/Percentage" value={edu.gpa} onChange={(e) => {
+                <input placeholder="GPA / Percentage" value={edu.gpa} onChange={(e) => {
                   const n = [...resume.education]; n[i] = { ...n[i], gpa: e.target.value }; setResume(prev => ({ ...prev, education: n }));
                 }} className={inputClass} />
               </div>
             ))}
           </div>
 
-          {/* Skills */}
           <div className="bg-card rounded-xl border border-border p-4">
             <h4 className="font-medium text-sm mb-2">Skills</h4>
             <div className="flex flex-wrap gap-2 mb-2">
@@ -141,11 +133,10 @@ export default function Resume() {
             <div className="flex gap-2">
               <input placeholder="Add a skill" value={newSkill} onChange={(e) => setNewSkill(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addSkill()} className={inputClass} />
-              <button onClick={addSkill} className="px-3 py-2 rounded-lg bg-accent text-accent-foreground text-sm hover-scale"><Plus className="w-4 h-4" /></button>
+              <button onClick={addSkill} className="px-3 py-2 rounded-lg bg-accent text-accent-foreground text-sm"><Plus className="w-4 h-4" /></button>
             </div>
           </div>
 
-          {/* Projects */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-sm">Projects</h4>
@@ -167,7 +158,6 @@ export default function Resume() {
             ))}
           </div>
 
-          {/* Experience */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-sm">Experience / Internships</h4>
@@ -192,7 +182,6 @@ export default function Resume() {
             ))}
           </div>
 
-          {/* Achievements */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-sm">Achievements</h4>
@@ -210,20 +199,32 @@ export default function Resume() {
 
       {/* Templates */}
       <div>
-        <h3 className="font-semibold mb-4">Resume Template</h3>
+        <h3 className="font-semibold mb-4">Choose Template</h3>
         <div className="grid md:grid-cols-3 gap-4">
-          {(['Professional', 'Technical', 'Academic'] as const).map((t) => (
-            <button key={t} onClick={() => setSelectedTemplate(t)}
-              className={`bg-card rounded-xl border p-6 text-center transition-all group ${selectedTemplate === t ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-accent/50'}`}>
-              <FileText className={`w-8 h-8 mx-auto mb-3 ${selectedTemplate === t ? 'text-accent' : 'text-muted-foreground group-hover:text-accent'} transition-colors`} />
-              <p className="text-sm font-medium">{t}</p>
-              <p className="text-xs text-muted-foreground mt-1">Optimized for {config.label}</p>
+          {[
+            { id: 'Classic' as const, desc: 'Clean layout with clear section dividers' },
+            { id: 'Minimal' as const, desc: 'Simple, ATS-friendly, maximum readability' },
+            { id: 'Bold' as const, desc: 'Structured with highlighted headers' },
+          ].map((t) => (
+            <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
+              className={`bg-card rounded-xl border p-5 text-left transition-all ${selectedTemplate === t.id ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-accent/50'}`}>
+              {/* Mini resume preview */}
+              <div className="mb-3 p-3 rounded-lg bg-muted/50 space-y-1.5">
+                <div className={`h-2 rounded ${t.id === 'Classic' ? 'bg-accent/40 w-1/2' : t.id === 'Minimal' ? 'bg-foreground/20 w-2/3' : 'bg-accent/60 w-1/3'}`} />
+                <div className="h-1.5 rounded bg-foreground/10 w-full" />
+                <div className="h-1.5 rounded bg-foreground/10 w-4/5" />
+                <div className={`h-1.5 rounded ${t.id === 'Bold' ? 'bg-accent/30 w-1/4' : 'bg-foreground/5 w-1/3'} mt-2`} />
+                <div className="h-1.5 rounded bg-foreground/10 w-full" />
+                <div className="h-1.5 rounded bg-foreground/10 w-3/4" />
+              </div>
+              <p className="text-sm font-medium">{t.id}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
             </button>
           ))}
         </div>
       </div>
 
-      <button onClick={() => setShowPreview(true)} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium flex items-center justify-center gap-2 hover-scale">
+      <button onClick={() => setShowPreview(true)} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
         <Eye className="w-4 h-4" /> Preview & Download
       </button>
 
@@ -234,54 +235,59 @@ export default function Resume() {
             <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-10">
               <h3 className="font-semibold">Resume Preview — {selectedTemplate}</h3>
               <div className="flex gap-2">
-                <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover-scale flex items-center gap-2">
-                  <Download className="w-4 h-4" /> Print/Save PDF
+                <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium flex items-center gap-2">
+                  <Download className="w-4 h-4" /> Print / Save PDF
                 </button>
                 <button onClick={() => setShowPreview(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
               </div>
             </div>
-            <div className="p-8 space-y-6">
-              {/* Header */}
-              <div className={`p-6 rounded-xl ${templateStyles[selectedTemplate as keyof typeof templateStyles].header}`}>
-                <h2 className="text-2xl font-bold">{user?.name || 'Your Name'}</h2>
-                <p className="text-sm opacity-80">{user?.specialization || config.label} | {user?.city || 'City'}, {user?.state || 'State'}</p>
-                <p className="text-xs opacity-60 mt-1">{user?.college || 'College Name'} · {user?.year || 'Year'}</p>
+            <div className="p-8 space-y-5 text-foreground">
+              {/* Name */}
+              <div className={selectedTemplate === 'Bold' ? 'border-b-2 border-accent pb-4' : selectedTemplate === 'Classic' ? 'border-b border-border pb-4' : 'pb-3'}>
+                <h2 className={`font-bold ${selectedTemplate === 'Bold' ? 'text-2xl' : 'text-xl'}`}>{user?.name || 'Your Name'}</h2>
+                <p className="text-sm text-muted-foreground">{user?.specialization || config.label} {user?.city ? `· ${user.city}` : ''} {user?.state ? `, ${user.state}` : ''}</p>
+                {user?.college && <p className="text-xs text-muted-foreground">{user.college} · {user?.year || ''}</p>}
               </div>
 
               {/* Objective */}
-              <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                <h3 className="font-semibold text-sm mb-1">Career Objective</h3>
-                <p className="text-xs text-muted-foreground">{resume.objective}</p>
-              </div>
+              {resume.objective && (
+                <div>
+                  <h3 className={`font-semibold text-sm mb-1 ${selectedTemplate === 'Bold' ? 'text-accent' : ''}`}>Objective</h3>
+                  <p className="text-xs leading-relaxed text-muted-foreground">{resume.objective}</p>
+                </div>
+              )}
 
               {/* Education */}
-              <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                <h3 className="font-semibold text-sm mb-2">Education</h3>
-                {resume.education.filter(e => e.degree).map((edu, i) => (
-                  <div key={i} className="text-xs mb-1">
-                    <p className="font-medium">{edu.degree}</p>
-                    <p className="text-muted-foreground">{edu.college} {edu.year && `· ${edu.year}`} {edu.gpa && `· ${edu.gpa}`}</p>
-                  </div>
-                ))}
-              </div>
+              {resume.education.some(e => e.degree || e.college) && (
+                <div>
+                  <h3 className={`font-semibold text-sm mb-2 ${selectedTemplate === 'Bold' ? 'text-accent' : ''} ${selectedTemplate === 'Classic' ? 'border-b border-border pb-1' : ''}`}>Education</h3>
+                  {resume.education.filter(e => e.degree || e.college).map((edu, i) => (
+                    <div key={i} className="text-xs mb-1">
+                      <span className="font-medium">{edu.degree}</span>
+                      {edu.college && <span className="text-muted-foreground"> — {edu.college}</span>}
+                      {(edu.year || edu.gpa) && <span className="text-muted-foreground"> · {[edu.year, edu.gpa].filter(Boolean).join(' · ')}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Skills */}
-              <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                <h3 className="font-semibold text-sm mb-2">Skills</h3>
-                <div className="flex flex-wrap gap-2">
-                  {resume.skills.map(s => <span key={s} className="px-2 py-1 rounded bg-accent/10 text-accent text-xs">{s}</span>)}
+              {resume.skills.length > 0 && (
+                <div>
+                  <h3 className={`font-semibold text-sm mb-2 ${selectedTemplate === 'Bold' ? 'text-accent' : ''} ${selectedTemplate === 'Classic' ? 'border-b border-border pb-1' : ''}`}>Skills</h3>
+                  <p className="text-xs text-muted-foreground">{resume.skills.join(' · ')}</p>
                 </div>
-              </div>
+              )}
 
               {/* Projects */}
               {resume.projects.some(p => p.name) && (
-                <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                  <h3 className="font-semibold text-sm mb-2">Projects</h3>
+                <div>
+                  <h3 className={`font-semibold text-sm mb-2 ${selectedTemplate === 'Bold' ? 'text-accent' : ''} ${selectedTemplate === 'Classic' ? 'border-b border-border pb-1' : ''}`}>Projects</h3>
                   {resume.projects.filter(p => p.name).map((proj, i) => (
                     <div key={i} className="text-xs mb-2">
                       <p className="font-medium">{proj.name}</p>
                       {proj.desc && <p className="text-muted-foreground">{proj.desc}</p>}
-                      {proj.tech && <p className="text-accent mt-0.5">{proj.tech}</p>}
+                      {proj.tech && <p className="text-muted-foreground italic">{proj.tech}</p>}
                     </div>
                   ))}
                 </div>
@@ -289,11 +295,11 @@ export default function Resume() {
 
               {/* Experience */}
               {resume.experience.some(e => e.title) && (
-                <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                  <h3 className="font-semibold text-sm mb-2">Experience</h3>
+                <div>
+                  <h3 className={`font-semibold text-sm mb-2 ${selectedTemplate === 'Bold' ? 'text-accent' : ''} ${selectedTemplate === 'Classic' ? 'border-b border-border pb-1' : ''}`}>Experience</h3>
                   {resume.experience.filter(e => e.title).map((exp, i) => (
                     <div key={i} className="text-xs mb-2">
-                      <p className="font-medium">{exp.title} at {exp.company}</p>
+                      <p><span className="font-medium">{exp.title}</span>{exp.company && ` at ${exp.company}`}</p>
                       {exp.duration && <p className="text-muted-foreground">{exp.duration}</p>}
                       {exp.desc && <p className="text-muted-foreground">{exp.desc}</p>}
                     </div>
@@ -303,11 +309,21 @@ export default function Resume() {
 
               {/* Achievements */}
               {resume.achievements.some(a => a) && (
-                <div className={templateStyles[selectedTemplate as keyof typeof templateStyles].accent + ' pl-4'}>
-                  <h3 className="font-semibold text-sm mb-2">Achievements</h3>
-                  <ul className="text-xs space-y-1">
-                    {resume.achievements.filter(a => a).map((a, i) => <li key={i} className="text-muted-foreground">- {a}</li>)}
+                <div>
+                  <h3 className={`font-semibold text-sm mb-2 ${selectedTemplate === 'Bold' ? 'text-accent' : ''} ${selectedTemplate === 'Classic' ? 'border-b border-border pb-1' : ''}`}>Achievements</h3>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    {resume.achievements.filter(a => a).map((a, i) => (
+                      <li key={i}>• {a}</li>
+                    ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!resume.objective && resume.skills.length === 0 && !resume.projects[0].name && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Your resume is empty. Click "Edit Resume" to start filling in your details.</p>
                 </div>
               )}
             </div>
