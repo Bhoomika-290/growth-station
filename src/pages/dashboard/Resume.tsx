@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { FileText, CheckCircle, AlertCircle, Download, X, Plus, Trash2, Eye } from 'lucide-react';
+import { FileText, CheckCircle, AlertCircle, Download, X, Plus, Trash2, Eye, Sparkles, Loader2, ArrowRight } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { streamChat } from '@/lib/ai';
 
 interface ResumeData {
   objective: string;
@@ -53,22 +55,78 @@ export default function Resume() {
 
   const inputClass = "w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent";
 
+  // AI Analyzer
+  const [analyzerText, setAnalyzerText] = useState('');
+  const [analyzerResult, setAnalyzerResult] = useState('');
+  const [analyzerLoading, setAnalyzerLoading] = useState(false);
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
+
+  const analyzeResume = async () => {
+    if (!analyzerText.trim()) return;
+    setAnalyzerLoading(true);
+    setAnalyzerResult('');
+    let full = '';
+    await streamChat({
+      messages: [{ role: 'user', content: `Analyze this resume for an Indian ${config.label} student targeting ${user?.dreamCompany || 'top companies'}. Give ATS score out of 100, strengths, weaknesses, missing keywords, and specific improvement suggestions. Be detailed and actionable.\n\nResume:\n${analyzerText}` }],
+      mode: 'resume-analysis',
+      onDelta: (chunk) => { full += chunk; setAnalyzerResult(full); },
+      onDone: () => setAnalyzerLoading(false),
+      onError: () => { setAnalyzerResult('Failed to analyze. Please try again.'); setAnalyzerLoading(false); },
+    });
+  };
+
   return (
     <div className="max-w-4xl space-y-6 animate-fade-in">
+      {/* Header with tabs */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Resume Builder</h1>
-          <p className="text-sm text-muted-foreground">Build your resume and check ATS readiness</p>
+          <h1 className="text-2xl font-bold">Resume</h1>
+          <p className="text-sm text-muted-foreground">Build, analyze, and optimize your resume</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowBuilder(!showBuilder)} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-2">
-            <FileText className="w-4 h-4" /> {showBuilder ? 'Hide Editor' : 'Edit Resume'}
+          <button onClick={() => { setShowAnalyzer(false); setShowBuilder(!showBuilder); }} className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${!showAnalyzer ? 'bg-accent text-accent-foreground' : 'bg-muted text-foreground hover:bg-muted/80'}`}>
+            <FileText className="w-4 h-4" /> Builder
           </button>
-          <button onClick={() => setShowPreview(true)} className="px-4 py-2 rounded-xl bg-muted text-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-2">
-            <Eye className="w-4 h-4" /> Preview
+          <button onClick={() => { setShowBuilder(false); setShowAnalyzer(!showAnalyzer); }} className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${showAnalyzer ? 'bg-accent text-accent-foreground' : 'bg-muted text-foreground hover:bg-muted/80'}`}>
+            <Sparkles className="w-4 h-4" /> AI Analyzer
           </button>
         </div>
       </div>
+
+      {/* AI Resume Analyzer */}
+      {showAnalyzer && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="text-center">
+            <h2 className="text-xl font-bold">AI Resume Analyzer</h2>
+            <p className="text-sm text-muted-foreground">Upload your resume text to get instant AI-powered feedback and improvement suggestions.</p>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Paste Resume Text</p>
+              <p className="text-xs text-muted-foreground">{analyzerText.length} characters</p>
+            </div>
+            <textarea value={analyzerText} onChange={e => setAnalyzerText(e.target.value)}
+              placeholder="Paste your resume content here (Experience, Projects, Skills...)"
+              className="w-full px-4 py-3 rounded-xl border border-input bg-muted/30 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" rows={8} />
+          </div>
+
+          <button onClick={analyzeResume} disabled={!analyzerText.trim() || analyzerLoading}
+            className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium flex items-center justify-center gap-2 hover:scale-[1.01] transition-transform disabled:opacity-40">
+            {analyzerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            Analyze with AI <ArrowRight className="w-4 h-4" />
+          </button>
+
+          {analyzerResult && (
+            <div className="bg-card rounded-2xl border border-border p-5 animate-fade-in">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm"><Sparkles className="w-4 h-4 text-accent" /> AI Analysis</h3>
+              <div className="prose prose-sm max-w-none text-sm [&_strong]:text-accent [&_h2]:text-base [&_h3]:text-sm [&_h2]:font-semibold">
+                <ReactMarkdown>{analyzerResult}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ATS Score */}
       <div className="bg-card rounded-2xl border border-border p-6">
