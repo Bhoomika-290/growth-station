@@ -1,149 +1,163 @@
 import { useState } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { CalendarDays, Clock, FileText, X, TrendingUp, AlertTriangle, Award, CheckCircle, Square, Check, BarChart3, MapPin, Building, Video, ExternalLink, BookOpen } from 'lucide-react';
+import { Clock, FileText, X, TrendingUp, AlertTriangle, Award, CheckCircle, BarChart3, MapPin, Video, ExternalLink, BookOpen, ChevronRight, Play } from 'lucide-react';
 
 export default function WeeklyPlan() {
   const { domain, user, completeTask, rank, totalStudents, language } = useStationStore();
   const config = domainConfig[domain];
   const isHi = language === 'hi';
-  const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [showReport, setShowReport] = useState(false);
-  const [completedDays, setCompletedDays] = useState<Set<number>>(new Set());
-  const [completedQuestions, setCompletedQuestions] = useState<Record<number, Set<number>>>({});
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
 
   const resources = config.weeklyResources as Record<string, { videos: string[]; pdfs: string[] }>;
 
-  const days = config.weeklyTopics.map((topic, i) => ({
-    day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-    dayHi: ['सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि', 'रवि'][i],
+  const steps = config.weeklyTopics.map((topic, i) => ({
+    step: i + 1,
     topic,
-    questions: [
-      `Understand fundamentals of ${topic}`,
-      `Practice 5 basic problems on ${topic}`,
-      `Watch video lecture on ${topic}`,
-      `Solve 3 advanced problems on ${topic}`,
-      `Review and summarize ${topic} notes`,
-    ],
-    time: `${30 + i * 5} min`,
+    description: getStepDescription(domain, topic, user?.dreamCompany || config.companies[0]),
+    time: `${2 + i} hours`,
     videos: resources[topic]?.videos || [],
     pdfs: resources[topic]?.pdfs || [],
+    questions: getStepQuestions(domain, topic),
   }));
 
-  const toggleQuestion = (dayIdx: number, qIdx: number) => {
-    setCompletedQuestions(prev => {
-      const daySet = new Set(prev[dayIdx] || []);
-      if (daySet.has(qIdx)) { daySet.delete(qIdx); } else { daySet.add(qIdx); completeTask(); }
-      const next = { ...prev, [dayIdx]: daySet };
-      if (daySet.size === days[dayIdx].questions.length) {
-        setCompletedDays(p => new Set([...p, dayIdx]));
-      } else {
-        setCompletedDays(p => { const n = new Set(p); n.delete(dayIdx); return n; });
-      }
+  const toggleStep = (i: number) => {
+    setCompletedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(i)) { next.delete(i); } else { next.add(i); completeTask(); }
       return next;
     });
   };
 
-  const totalCompleted = completedDays.size;
-  const totalTasksDone = Object.values(completedQuestions).reduce((sum, s) => sum + s.size, 0);
-  const totalTasks = days.length * 5;
-  const overallProgress = Math.round((totalTasksDone / totalTasks) * 100);
+  const totalCompleted = completedSteps.size;
+  const overallProgress = Math.round((totalCompleted / steps.length) * 100);
   const pct = Math.round(((totalStudents - rank) / totalStudents) * 100);
-  const strongestDay = [...completedDays].length > 0 ? config.weeklyTopics[[...completedDays][0]] : null;
-  const weakestTopic = config.weeklyTopics.find((_, i) => !completedDays.has(i)) || config.weeklyTopics[4];
 
   return (
     <div className="max-w-4xl space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{isHi ? 'साप्ताहिक योजना' : 'Weekly Plan'}</h1>
-          <p className="text-sm text-muted-foreground">{user?.name ? `${user.name}'s` : 'Your'} {isHi ? config.labelHi : config.label} {isHi ? 'तैयारी' : 'preparation'}</p>
+          <h1 className="text-2xl font-bold">{isHi ? 'रोडमैप' : 'Roadmap'}</h1>
+          <p className="text-sm text-muted-foreground">{isHi ? 'आपकी व्यक्तिगत तैयारी योजना' : 'Your personalized preparation plan'}</p>
         </div>
         <button onClick={() => setShowReport(true)} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:scale-105 transition-transform flex items-center gap-2">
           <FileText className="w-4 h-4" /> {isHi ? 'रिपोर्ट' : 'Report'}
         </button>
       </div>
 
-      {/* Progress */}
+      {/* Progress bar */}
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium">{totalTasksDone}/{totalTasks} {isHi ? 'कार्य' : 'tasks'}</p>
+          <p className="text-sm font-medium">{totalCompleted}/{steps.length} {isHi ? 'स्टेप पूर्ण' : 'steps completed'}</p>
           <p className="text-sm font-bold text-accent">{overallProgress}%</p>
         </div>
-        <div className="h-3 bg-muted rounded-full overflow-hidden">
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }} />
         </div>
       </div>
 
-      <div className="grid gap-3">
-        {days.map((d, i) => {
-          const dayCompleted = completedDays.has(i);
-          const dayQuestions = completedQuestions[i] || new Set<number>();
-          const dayProgress = dayQuestions.size;
+      {/* Steps — Timeline Style */}
+      <div className="space-y-4">
+        {steps.map((step, i) => {
+          const done = completedSteps.has(i);
+          const expanded = expandedStep === i;
           return (
-            <div key={i} className="bg-card rounded-xl border border-border overflow-hidden">
-              <button onClick={() => setExpandedDay(expandedDay === i ? null : i)}
-                className={`w-full flex items-center gap-4 p-4 text-left transition-colors ${dayCompleted ? 'opacity-70' : ''}`}>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${dayCompleted ? 'bg-accent/20 text-accent' : 'bg-muted text-muted-foreground'}`}>
-                  {isHi ? d.dayHi : d.day}
-                </span>
-                <span className="flex-1 font-medium text-sm">{d.topic}</span>
-                {dayCompleted && <CheckCircle className="w-4 h-4 text-accent" />}
-                <span className="text-xs text-muted-foreground">{dayProgress}/{d.questions.length}</span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />{d.time}</span>
-              </button>
-              {expandedDay === i && (
-                <div className="px-4 pb-4 border-t border-border pt-3 animate-fade-in space-y-4">
-                  <p className="text-sm font-medium">{isHi ? `${d.topic} के कार्य:` : `Tasks for ${d.topic}:`}</p>
-                  <div className="space-y-2">
-                    {d.questions.map((q, qi) => {
-                      const done = dayQuestions.has(qi);
-                      return (
-                        <button key={qi} onClick={() => toggleQuestion(i, qi)}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left text-sm transition-all ${
-                            done ? 'bg-accent/5 border-accent/30 line-through text-muted-foreground' : 'border-border hover:border-accent/50'
-                          }`}>
-                          {done ? <Check className="w-4 h-4 text-accent flex-shrink-0" /> : <Square className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
-                          <span>{q}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+            <div key={i} className="relative">
+              {/* Timeline connector */}
+              {i < steps.length - 1 && (
+                <div className={`absolute left-5 top-16 w-0.5 h-[calc(100%-2rem)] ${done ? 'bg-accent' : 'bg-border'}`} />
+              )}
 
-                  {/* Study Materials */}
-                  {(d.videos.length > 0 || d.pdfs.length > 0) && (
-                    <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-accent" />
-                        {isHi ? 'अध्ययन सामग्री' : 'Study Materials'}
-                      </p>
-                      {d.videos.map((url, vi) => (
+              <div className={`bg-card rounded-2xl border transition-all ${done ? 'border-accent/40' : 'border-border'} overflow-hidden`}>
+                {/* Step Header */}
+                <div className="flex items-start gap-4 p-5">
+                  {/* Step circle */}
+                  <button onClick={() => toggleStep(i)}
+                    className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm transition-all ${
+                      done ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground border-2 border-border'
+                    }`}>
+                    {done ? <CheckCircle className="w-5 h-5" /> : step.step}
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-accent font-bold">Step {step.step}</span>
+                        <h3 className={`font-bold text-base mt-0.5 ${done ? 'line-through text-muted-foreground' : ''}`}>{step.topic}</h3>
+                      </div>
+                      <button onClick={() => setExpandedStep(expanded ? null : i)}
+                        className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-medium hover:scale-105 transition-transform flex items-center gap-1 flex-shrink-0">
+                        {isHi ? 'सीखना शुरू करें' : 'Start Learning'} <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Est. {step.time}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{step.description}</p>
+
+                    {/* Resource links — always visible */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {step.videos.slice(0, 2).map((url, vi) => (
                         <a key={vi} href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-accent/50 transition-all">
-                          <div className="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center">
-                            <Video className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-medium">{isHi ? 'वीडियो लेक्चर' : 'Video Lecture'} {vi + 1}</p>
-                            <p className="text-[10px] text-muted-foreground">YouTube</p>
-                          </div>
-                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs hover:bg-accent/10 transition-colors">
+                          <Play className="w-3 h-3 text-accent" /> {step.topic.split(' ')[0]} - Video {vi + 1} <ExternalLink className="w-3 h-3" />
                         </a>
                       ))}
-                      {d.pdfs.map((pdf, pi) => (
-                        <div key={pi} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border">
-                          <div className="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-medium">{pdf}</p>
-                            <p className="text-[10px] text-muted-foreground">{isHi ? 'अध्ययन नोट्स' : 'Study Notes'}</p>
-                          </div>
-                        </div>
+                      {step.pdfs.slice(0, 1).map((pdf, pi) => (
+                        <span key={pi} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs">
+                          <BookOpen className="w-3 h-3 text-accent" /> {pdf}
+                        </span>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}
+
+                {/* Expanded: Questions & detailed resources */}
+                {expanded && (
+                  <div className="px-5 pb-5 pt-0 border-t border-border mt-0 animate-fade-in">
+                    <div className="ml-14 space-y-4 pt-4">
+                      {/* Practice Questions */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">{isHi ? 'अभ्यास प्रश्न' : 'Practice Questions'}</p>
+                        <div className="space-y-2">
+                          {step.questions.map((q, qi) => (
+                            <div key={qi} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/30 text-xs">
+                              <span className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-[10px] flex-shrink-0">{qi + 1}</span>
+                              <span>{q}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Video embeds */}
+                      {step.videos.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">{isHi ? 'वीडियो लेक्चर' : 'Video Lectures'}</p>
+                          <div className="grid gap-2">
+                            {step.videos.map((url, vi) => {
+                              const videoId = extractYouTubeId(url);
+                              return videoId ? (
+                                <div key={vi} className="rounded-xl overflow-hidden aspect-video bg-muted">
+                                  <iframe src={`https://www.youtube.com/embed/${videoId}`} title={`${step.topic} Video ${vi + 1}`}
+                                    className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                                </div>
+                              ) : (
+                                <a key={vi} href={url} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-accent/10 transition-all">
+                                  <Video className="w-5 h-5 text-accent" />
+                                  <span className="text-xs">{isHi ? 'वीडियो देखें' : 'Watch Video'} {vi + 1}</span>
+                                  <ExternalLink className="w-3 h-3 ml-auto" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -157,56 +171,20 @@ export default function WeeklyPlan() {
               <h3 className="text-lg font-bold">{isHi ? 'साप्ताहिक प्रदर्शन' : 'Weekly Performance'}</h3>
               <button onClick={() => setShowReport(false)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
-
-            <div className="p-4 rounded-xl bg-muted/50 mb-4">
-              <p className="font-semibold">{user?.name || 'Student'}</p>
-              <p className="text-xs text-muted-foreground">{user?.college || ''} · {user?.specialization || config.label} · {user?.city || ''}</p>
-            </div>
-
             <div className="text-center p-4 rounded-xl border border-border mb-4">
               <p className="text-4xl font-bold text-accent">{overallProgress}%</p>
-              <p className="text-xs text-muted-foreground mt-1">{totalTasksDone}/{totalTasks} {isHi ? 'कार्य पूर्ण' : 'tasks completed'}</p>
-              <div className="h-2 bg-muted rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-accent rounded-full" style={{ width: `${overallProgress}%` }} />
-              </div>
+              <p className="text-xs text-muted-foreground mt-1">{totalCompleted}/{steps.length} {isHi ? 'स्टेप पूर्ण' : 'steps completed'}</p>
             </div>
-
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
                 <BarChart3 className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium">Top {pct}% in {user?.city || 'your area'}</p>
-                  <p className="text-xs text-muted-foreground">{isHi ? `${config.labelHi} छात्रों में` : `Among ${config.label} students`}</p>
-                </div>
+                <div><p className="font-medium">Top {pct}% in {user?.city || 'your area'}</p></div>
               </div>
-
-              {strongestDay && (
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-accent/5 border border-accent/20">
-                  <Award className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">{isHi ? 'सबसे मजबूत' : 'Strongest'}: {strongestDay}</p>
-                    <p className="text-xs text-muted-foreground">{isHi ? 'इस विषय के सभी कार्य पूर्ण' : 'All tasks completed for this topic'}</p>
-                  </div>
-                </div>
-              )}
-
               <div className="flex items-start gap-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20">
                 <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">{isHi ? 'सुधार की ज़रूरत' : 'Needs work'}: {weakestTopic}</p>
-                  <p className="text-xs text-muted-foreground">{isHi ? 'अगले हफ्ते इस पर ध्यान दें' : 'Focus on this next week'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
-                <MapPin className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium">{user?.city || 'Your area'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {totalCompleted >= 5 ? (isHi ? 'केवल 3% छात्रों ने इतना पूरा किया है' : 'Only 3% have completed this much') :
-                     totalCompleted >= 3 ? (isHi ? 'शीर्ष 25% में' : 'You are in top 25%') :
-                     (isHi ? 'निरंतरता आपको अलग करेगी' : 'Consistency will set you apart')}
-                  </p>
+                  <p className="font-medium">{isHi ? 'बाकी स्टेप पूरे करें' : 'Complete remaining steps'}</p>
+                  <p className="text-xs text-muted-foreground">{steps.length - totalCompleted} {isHi ? 'बाकी' : 'remaining'}</p>
                 </div>
               </div>
             </div>
@@ -215,4 +193,75 @@ export default function WeeklyPlan() {
       )}
     </div>
   );
+}
+
+function extractYouTubeId(url: string): string | null {
+  const match = url.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
+function getStepDescription(domain: string, topic: string, company: string): string {
+  const descs: Record<string, Record<string, string>> = {
+    engineering: {
+      'Arrays & Hashing': `Master array manipulation and hash map patterns. ${company} heavily tests these in online assessments. Focus on two-pointer, sliding window, and frequency counting techniques.`,
+      'Trees & Graphs': `Build strong fundamentals in tree traversals and graph algorithms. Practice BFS, DFS, and shortest path problems commonly asked at ${company}.`,
+      'Dynamic Programming': `Learn to identify DP patterns — knapsack, LCS, matrix chain. ${company} often asks medium-hard DP problems in technical rounds.`,
+      'System Design Basics': `Understand scalability, load balancing, caching, and database sharding. Essential for ${company} senior rounds.`,
+      'SQL & DBMS': `Master SQL queries, normalization, ACID properties, and indexing. ${company} tests DBMS fundamentals in technical interviews.`,
+      'OS Concepts': `Study processes, threads, memory management, and scheduling algorithms. Core CS fundamentals tested at ${company}.`,
+      'Mock Interview': `Practice full mock interviews simulating ${company}'s actual interview format. Focus on communication and problem-solving approach.`,
+    },
+    commerce: {
+      'Number System': `Master number system shortcuts for quick calculations. Essential for ${company} quantitative aptitude section.`,
+      'Profit & Loss': `Learn all P&L formulas, partnerships, and SI/CI problems. High-weightage topic in ${company} exams.`,
+      'Data Interpretation': `Practice reading charts, tables, and graphs quickly. ${company} dedicates 15-20 questions to DI.`,
+      'Syllogisms': `Learn Venn diagram method for solving syllogisms accurately. Important for ${company} reasoning section.`,
+      'Banking GK': `Study current banking policies, RBI guidelines, and financial news. ${company} asks 25-30 GK questions.`,
+      'English Grammar': `Focus on error spotting, fill in blanks, and reading comprehension. Important for ${company} English section.`,
+      'Mock Test': `Take full-length mock tests simulating ${company}'s actual exam pattern and time limits.`,
+    },
+    arts: {
+      'Ancient India': `Study Indus Valley, Vedic period, Mauryas, and Guptas. Foundation for UPSC History paper.`,
+      'Indian Polity': `Master constitutional framework, amendments, and landmark judgments from Laxmikanth.`,
+      'Physical Geography': `Study geomorphology, climatology, and oceanography. Important for Prelims and Mains.`,
+      'Indian Economy': `Understand fiscal policy, monetary policy, and economic surveys. High-weightage in UPSC.`,
+      'Ethics Case Studies': `Practice writing ethical dilemma case studies with proper framework and analysis.`,
+      'Current Affairs': `Review last 6 months of national and international events, government schemes.`,
+      'Answer Writing': `Practice structured answer writing with introduction, body, and conclusion format.`,
+    },
+  };
+  return descs[domain]?.[topic] || `Focus on mastering ${topic}. This is an important area for your preparation.`;
+}
+
+function getStepQuestions(domain: string, topic: string): string[] {
+  const qs: Record<string, Record<string, string[]>> = {
+    engineering: {
+      'Arrays & Hashing': ['Two Sum problem', 'Find duplicates in array', 'Longest consecutive sequence', 'Group anagrams'],
+      'Trees & Graphs': ['Level order traversal', 'Validate BST', 'Number of islands', 'Dijkstra shortest path'],
+      'Dynamic Programming': ['Climbing stairs', 'Longest common subsequence', '0/1 Knapsack', 'Edit distance'],
+      'System Design Basics': ['Design URL shortener', 'Design chat system', 'Design rate limiter'],
+      'SQL & DBMS': ['Write JOIN queries', 'Explain normalization forms', 'ACID properties with examples'],
+      'OS Concepts': ['Explain deadlock conditions', 'Page replacement algorithms', 'Process vs Thread'],
+      'Mock Interview': ['Introduce yourself in 2 minutes', 'Solve a medium DSA problem', 'Explain a past project'],
+    },
+    commerce: {
+      'Number System': ['Find HCF/LCM of 3 numbers', 'Remainder theorem problems', 'Unit digit problems'],
+      'Profit & Loss': ['Successive discount problems', 'Partnership ratio problems', 'Marked price questions'],
+      'Data Interpretation': ['Bar graph analysis', 'Pie chart calculations', 'Table-based questions'],
+      'Syllogisms': ['All-Some-No combinations', 'Either-Or conclusions', 'Complementary pair identification'],
+      'Banking GK': ['Current repo rate', 'RBI governor functions', 'Recent banking mergers'],
+      'English Grammar': ['Subject-verb agreement', 'Error detection', 'Para jumbles'],
+      'Mock Test': ['Full prelims mock', 'Sectional time management', 'Accuracy vs attempts analysis'],
+    },
+    arts: {
+      'Ancient India': ['Harappan trade routes', 'Ashoka\'s dhamma', 'Gupta golden age contributions'],
+      'Indian Polity': ['Fundamental Rights vs DPSP', 'Amendment procedures', 'Federal structure analysis'],
+      'Physical Geography': ['Plate tectonics theory', 'Indian monsoon mechanism', 'Ocean currents'],
+      'Indian Economy': ['GDP vs GNP', 'Fiscal deficit implications', 'Monetary policy tools'],
+      'Ethics Case Studies': ['Conflict of interest scenario', 'Whistleblower dilemma', 'Public duty vs personal ethics'],
+      'Current Affairs': ['Recent Supreme Court verdicts', 'International summits', 'Government flagship schemes'],
+      'Answer Writing': ['150-word answer structure', 'Diagram integration', 'Conclusion writing practice'],
+    },
+  };
+  return qs[domain]?.[topic] || ['Practice fundamentals', 'Solve 5 problems', 'Review key concepts'];
 }
