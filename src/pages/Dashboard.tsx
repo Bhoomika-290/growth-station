@@ -2,12 +2,12 @@ import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { FocusTimerFAB } from '@/components/FocusTimer';
-import { useStationStore } from '@/store/useStationStore';
 import { Timer } from 'lucide-react';
 
 export default function Dashboard() {
   return (
-    <SidebarProvider>
+    <>
+      <SidebarProvider>
         <div className="min-h-screen flex w-full">
           <AppSidebar />
           <div className="flex-1 flex flex-col">
@@ -19,13 +19,13 @@ export default function Dashboard() {
                 </button>
               </div>
             </header>
-            <main className="flex-1 p-6 overflow-auto">
+            <main className="flex-1 p-6 overflow-auto bg-background">
               <Outlet />
             </main>
           </div>
         </div>
       </SidebarProvider>
       <FocusTimerFAB />
-    </div>
+    </>
   );
 }
