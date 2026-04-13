@@ -18,6 +18,8 @@ import Social from "./pages/dashboard/Social";
 import Resume from "./pages/dashboard/Resume";
 import Profile from "./pages/dashboard/Profile";
 import SettingsPage from "./pages/dashboard/SettingsPage";
+import Companies from "./pages/dashboard/Companies";
+import Jobs from "./pages/dashboard/Jobs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,8 @@ const App = () => (
               <Route path="resume" element={<Resume />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="companies" element={<Companies />} />
+              <Route path="jobs" element={<Jobs />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
