@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { Mic, MapPin, Building, Target, MessageSquare, Presentation, ArrowRight, ArrowLeft, X, Send, CheckCircle, User, ChevronDown, ChevronUp, Shield, Brain, Heart, Eye, Sparkles, BookOpen, Video, ExternalLink, Loader2 } from 'lucide-react';
+import { Mic, MapPin, Building, Target, MessageSquare, Presentation, ArrowRight, ArrowLeft, X, Send, CheckCircle, User, ChevronDown, ChevronUp, Shield, Brain, Heart, Eye, Sparkles, BookOpen, Video, ExternalLink, Loader2, Users } from 'lucide-react';
 import { streamChat, type Msg } from '@/lib/ai';
 import ReactMarkdown from 'react-markdown';
 
@@ -263,11 +263,52 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
 
   // ===== OVERVIEW =====
   if (stage === 'overview') {
+    // Simulated applicant data based on company seats
+    const applicantData = companyData.map(c => {
+      const info = (config.companyData as Record<string, any>)?.[c.name];
+      const seats = info?.seats || 500;
+      const applicants = seats < 500 ? Math.round(seats * 120) : seats < 2000 ? Math.round(seats * 40) : Math.round(seats * 15);
+      const myProbability = Math.min(95, Math.round((c.match / 100) * (seats / applicants) * 1000));
+      return { ...c, applicants, myProbability };
+    });
+
     return (
       <div className="max-w-4xl space-y-6 animate-fade-in">
         <div>
           <h1 className="text-2xl font-bold">{isHi ? 'इंटरव्यू तैयारी' : 'Interview Prep'}</h1>
           <p className="text-sm text-muted-foreground">{config.interviewText}</p>
+        </div>
+
+        {/* Applicants & Probability Overview */}
+        <div className="bg-card rounded-2xl border border-border p-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-accent" /> {isHi ? 'प्रतिस्पर्धा विश्लेषण' : 'Competition Analysis'}</h3>
+          <div className="space-y-3">
+            {applicantData.map((c) => (
+              <div key={c.name} className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border hover:border-accent/30 transition-all cursor-pointer" onClick={() => startCompanyPrep(c.name)}>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{c.name}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground">{c.salary}</span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" /> {c.applicants.toLocaleString()} {isHi ? 'आवेदक' : 'applicants'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{c.seats} {isHi ? 'सीटें' : 'seats'}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-accent">{c.myProbability}%</p>
+                  <p className="text-[10px] text-muted-foreground">{isHi ? 'आपकी संभावना' : 'Your probability'}</p>
+                </div>
+                <div className="w-16">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-accent rounded-full" style={{ width: `${c.myProbability}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Stage 1 - Job Targeting */}

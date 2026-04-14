@@ -7,6 +7,7 @@ import { useStationStore } from "@/store/useStationStore";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/dashboard/Home";
