@@ -22,6 +22,11 @@ import SettingsPage from "./pages/dashboard/SettingsPage";
 import Companies from "./pages/dashboard/Companies";
 import Jobs from "./pages/dashboard/Jobs";
 import SpeechPractice from "./pages/dashboard/SpeechPractice";
+import MockInterview from "./pages/dashboard/MockInterview";
+import WeaknessDetector from "./pages/dashboard/WeaknessDetector";
+import PlacementScore from "./pages/dashboard/PlacementScore";
+import CompanyPrep from "./pages/dashboard/CompanyPrep";
+import Last7Days from "./pages/dashboard/Last7Days";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +59,12 @@ const App = () => (
               <Route path="weekly" element={<WeeklyPlan />} />
               <Route path="quizzes" element={<Quizzes />} />
               <Route path="interview" element={<InterviewPrep />} />
+              <Route path="speech" element={<SpeechPractice />} />
+              <Route path="mock-interview" element={<MockInterview />} />
+              <Route path="weakness" element={<WeaknessDetector />} />
+              <Route path="readiness" element={<PlacementScore />} />
+              <Route path="company-prep" element={<CompanyPrep />} />
+              <Route path="last-7-days" element={<Last7Days />} />
               <Route path="vault" element={<Vault />} />
               <Route path="social" element={<Social />} />
               <Route path="resume" element={<Resume />} />
@@ -61,7 +72,6 @@ const App = () => (
               <Route path="settings" element={<SettingsPage />} />
               <Route path="companies" element={<Companies />} />
               <Route path="jobs" element={<Jobs />} />
-              <Route path="speech" element={<SpeechPractice />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

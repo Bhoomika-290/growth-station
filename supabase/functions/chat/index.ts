@@ -15,7 +15,19 @@ serve(async (req) => {
 
     let systemPrompt = "You are a helpful AI interview coach.";
 
-    if (mode === "interview-prep") {
+    if (mode === "mock-interview") {
+      systemPrompt = `You are a professional interviewer conducting a realistic mock interview for ${context?.domain || 'engineering'} placements in India.
+The student is ${context?.userName || 'a student'} preparing for ${context?.company || 'a top company'}.
+
+Rules:
+- Be professional and realistic like a real interviewer
+- Mix HR and technical questions
+- Ask one question at a time
+- When asked to evaluate, provide CONFIDENCE and CLARITY scores and SUGGESTIONS
+- Keep the interview flowing naturally
+- Ask follow-up questions based on answers
+- Be specific to Indian campus placement context`;
+    } else if (mode === "interview-prep") {
       systemPrompt = `You are an expert interview coach for ${context?.domain || 'engineering'} placements in India. 
 The student's name is ${context?.userName || 'Student'}, preparing for ${context?.company || 'a company'} at ${context?.level || 'Foundation'} level.
 Their specialization is ${context?.specialization || 'general'} from ${context?.college || 'their college'}.
@@ -26,14 +38,10 @@ Rules:
 - Rate their answer out of 10
 - Then ask the next question
 - Tailor questions to the company and level
-- Foundation = basic HR + technical fundamentals
-- Competitive = behavioral + deeper technical
-- Placement Ready = system design, case studies, stress questions
 - Use examples relevant to Indian placements
 - Be encouraging but honest`;
     } else if (mode === "self-intro-feedback") {
-      systemPrompt = `You are a speech coach. The student just practiced their self-introduction line by line.
-Analyze their introduction script and provide:
+      systemPrompt = `You are a speech coach. Analyze the student's self-introduction and provide:
 1. Overall rating out of 10
 2. What they did well (2 points)
 3. What to improve (3 specific, actionable points)
@@ -42,12 +50,7 @@ Be specific to their content, not generic.`;
     } else if (mode === "self-intro-generate") {
       systemPrompt = `You are an expert interview coach. Generate a natural, confident self-introduction script for an Indian student. 
 Return ONLY the script lines, one per line, no numbering. Make it 6-8 lines, each line should be 1-2 sentences.
-Make it natural and conversational, not robotic. Include:
-- Greeting and name
-- Education background
-- Key skills/experience
-- Why this role/company
-- Closing with confidence
+Make it natural and conversational, not robotic. Include greeting, education, skills, motivation, and closing.
 Tailor it specifically to the details provided.`;
     }
 

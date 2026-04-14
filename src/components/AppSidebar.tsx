@@ -1,4 +1,4 @@
-import { Home, CalendarDays, Brain, Mic, FileText, BookOpen, Users, User, Settings, Building, Briefcase, AudioLines } from 'lucide-react';
+import { Home, CalendarDays, Brain, Mic, FileText, BookOpen, Users, User, Settings, Building, Briefcase, AudioLines, Video, AlertTriangle, Award, Calendar, Target } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -13,7 +13,12 @@ const navItems = [
   { title: 'Weekly Plan', url: '/dashboard/weekly', icon: CalendarDays },
   { title: 'Quizzes', url: '/dashboard/quizzes', icon: Brain },
   { title: 'Interview Prep', url: '/dashboard/interview', icon: Mic },
+  { title: 'Mock Interview', url: '/dashboard/mock-interview', icon: Video },
   { title: 'Speech Practice', url: '/dashboard/speech', icon: AudioLines },
+  { title: 'Weakness Detector', url: '/dashboard/weakness', icon: AlertTriangle },
+  { title: 'Readiness Score', url: '/dashboard/readiness', icon: Award },
+  { title: 'Company Prep', url: '/dashboard/company-prep', icon: Target },
+  { title: 'Last 7 Days', url: '/dashboard/last-7-days', icon: Calendar },
   { title: 'Resume', url: '/dashboard/resume', icon: FileText },
   { title: 'Knowledge Vault', url: '/dashboard/vault', icon: BookOpen },
   { title: 'Companies', url: '/dashboard/companies', icon: Building },
