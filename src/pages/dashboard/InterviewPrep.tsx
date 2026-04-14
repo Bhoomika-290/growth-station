@@ -4,16 +4,7 @@ import { Mic, MapPin, Building, Target, MessageSquare, Presentation, ArrowRight,
 import { streamChat, type Msg } from '@/lib/ai';
 import ReactMarkdown from 'react-markdown';
 
-type Stage = 'overview' | 'job-target' | 'company-prep' | 'behavioral' | 'self-intro-form' | 'self-intro-practice' | 'self-intro-feedback' | 'rapid-fire' | 'mindset';
-
-interface IntroForm {
-  name: string;
-  role: string;
-  targetCompany: string;
-  experience: string;
-  strengths: string;
-  whyThisRole: string;
-}
+type Stage = 'overview' | 'job-target' | 'company-prep' | 'behavioral' | 'rapid-fire' | 'mindset' | 'mindset-quiz' | 'mindset-results';
 
 export default function InterviewPrep() {
   const { domain, user, language } = useStationStore();
@@ -28,22 +19,16 @@ export default function InterviewPrep() {
   const [currentRFQ, setCurrentRFQ] = useState(0);
   const [rfAnswers, setRfAnswers] = useState<string[]>([]);
   const [rfInput, setRfInput] = useState('');
-  const [introScript, setIntroScript] = useState<string[]>([]);
-  const [currentLine, setCurrentLine] = useState(0);
-  const [spokenLines, setSpokenLines] = useState<Set<number>>(new Set());
   const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
-  const [introForm, setIntroForm] = useState<IntroForm>({
-    name: user?.name || '',
-    role: user?.dreamJob || user?.dreamCompany || '',
-    targetCompany: user?.dreamCompany || config.companies[0],
-    experience: '',
-    strengths: '',
-    whyThisRole: '',
-  });
-  const [introGenerating, setIntroGenerating] = useState(false);
-  const [feedbackText, setFeedbackText] = useState('');
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Mindset quiz state
+  const [mindsetStep, setMindsetStep] = useState(0); // 0=info, 1=video, 2=quiz
+  const [scenarioIdx, setScenarioIdx] = useState(0);
+  const [scenarioAnswers, setScenarioAnswers] = useState<string[]>([]);
+  const [scenarioInput, setScenarioInput] = useState('');
+  const [mindsetAnalysis, setMindsetAnalysis] = useState('');
+  const [mindsetAnalysisLoading, setMindsetAnalysisLoading] = useState(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,6 +54,30 @@ export default function InterviewPrep() {
     arts: ['What is Article 370?', 'Explain federalism.', 'What is judicial review?', 'Difference between Fundamental Rights and DPSP?', 'What is CAG?', 'Explain PESA Act.'],
   };
 
+  const scenarioQuestions: Record<string, { scenario: string; hint: string }[]> = {
+    engineering: [
+      { scenario: 'You\'re in a technical interview and the interviewer asks a question about a technology you\'ve never used. What do you do?', hint: 'Think about honesty, curiosity, and transferable skills.' },
+      { scenario: 'Your team lead assigns you a task you think is poorly planned. How do you handle it?', hint: 'Balance between respect and constructive feedback.' },
+      { scenario: 'You\'re about to enter the interview room and suddenly feel extremely nervous. How do you calm yourself?', hint: 'Think about breathing, positive self-talk, and preparation recall.' },
+      { scenario: 'The interviewer seems disinterested and keeps checking their phone. How do you react?', hint: 'Stay professional, maintain energy, don\'t take it personally.' },
+      { scenario: 'You realize you gave an incorrect answer 2 questions ago. Should you bring it up?', hint: 'Honesty vs. moving forward — both have merits.' },
+    ],
+    commerce: [
+      { scenario: 'In a bank PO interview, you\'re asked about a recent RBI policy you haven\'t read about. What do you do?', hint: 'Admit gracefully, relate to what you do know.' },
+      { scenario: 'The panel asks your opinion on a controversial economic policy. How do you answer diplomatically?', hint: 'Present both sides, then give your balanced view.' },
+      { scenario: 'You\'re asked why you chose banking over other careers. Your real answer is "job security." How do you frame it?', hint: 'Reframe positively — stability enables service.' },
+      { scenario: 'A co-candidate before you gave a brilliant answer. You feel intimidated. What\'s your mental approach?', hint: 'Focus on your unique strengths, not comparison.' },
+      { scenario: 'The interviewer challenges your answer aggressively. How do you respond?', hint: 'Stay calm, acknowledge their point, defend with facts.' },
+    ],
+    arts: [
+      { scenario: 'In your UPSC interview, you\'re asked about a topic from your optional subject that you\'ve forgotten. What do you do?', hint: 'Connect to broader concepts you remember.' },
+      { scenario: 'The panel presents an ethical dilemma: a senior officer asks you to bypass rules for a "good cause." Your response?', hint: 'Think about rule of law, consequences, and alternatives.' },
+      { scenario: 'You\'re asked to critique a government policy you actually support. How do you handle it?', hint: 'Show balanced thinking — nothing is perfect.' },
+      { scenario: 'Your interview is going poorly and you feel like giving up mid-way. What do you tell yourself?', hint: 'Resilience, every question is a fresh start.' },
+      { scenario: 'The chairman asks a very personal question about your family background. How do you respond?', hint: 'Be proud, connect it to your motivation for civil service.' },
+    ],
+  };
+
   // ===== AI Company Prep =====
   const startCompanyPrep = (company: string, level?: string) => {
     setSelectedCompany(company);
@@ -78,33 +87,16 @@ export default function InterviewPrep() {
     setIsStreaming(true);
     setStage('company-prep');
 
-    const systemMsg: Msg[] = [];
     const userMsg: Msg = { role: 'user', content: `I want to start ${lvl} level interview preparation for ${company}. Please ask me the first question.` };
 
     let assistantText = '';
     streamChat({
       messages: [userMsg],
       mode: 'interview-prep',
-      context: {
-        domain: domain,
-        userName: user?.name || 'Student',
-        company: company,
-        level: lvl,
-        specialization: user?.specialization || '',
-        college: user?.college || '',
-      },
-      onDelta: (chunk) => {
-        assistantText += chunk;
-        setAiMessages([userMsg, { role: 'assistant', content: assistantText }]);
-      },
-      onDone: () => {
-        setAiMessages([userMsg, { role: 'assistant', content: assistantText }]);
-        setIsStreaming(false);
-      },
-      onError: (err) => {
-        setAiMessages([userMsg, { role: 'assistant', content: `Error: ${err}` }]);
-        setIsStreaming(false);
-      },
+      context: { domain, userName: user?.name || 'Student', company, level: lvl, specialization: user?.specialization || '', college: user?.college || '' },
+      onDelta: (chunk) => { assistantText += chunk; setAiMessages([userMsg, { role: 'assistant', content: assistantText }]); },
+      onDone: () => { setAiMessages([userMsg, { role: 'assistant', content: assistantText }]); setIsStreaming(false); },
+      onError: (err) => { setAiMessages([userMsg, { role: 'assistant', content: `Error: ${err}` }]); setIsStreaming(false); },
     });
   };
 
@@ -120,136 +112,74 @@ export default function InterviewPrep() {
     streamChat({
       messages: newMessages,
       mode: 'interview-prep',
-      context: {
-        domain,
-        userName: user?.name || 'Student',
-        company: selectedCompany,
-        level: selectedLevel,
-        specialization: user?.specialization || '',
-        college: user?.college || '',
-      },
-      onDelta: (chunk) => {
-        assistantText += chunk;
-        setAiMessages([...newMessages, { role: 'assistant', content: assistantText }]);
-      },
-      onDone: () => {
-        setAiMessages([...newMessages, { role: 'assistant', content: assistantText }]);
-        setIsStreaming(false);
-      },
-      onError: (err) => {
-        setAiMessages([...newMessages, { role: 'assistant', content: `Error: ${err}` }]);
-        setIsStreaming(false);
-      },
+      context: { domain, userName: user?.name || 'Student', company: selectedCompany, level: selectedLevel, specialization: user?.specialization || '', college: user?.college || '' },
+      onDelta: (chunk) => { assistantText += chunk; setAiMessages([...newMessages, { role: 'assistant', content: assistantText }]); },
+      onDone: () => { setAiMessages([...newMessages, { role: 'assistant', content: assistantText }]); setIsStreaming(false); },
+      onError: (err) => { setAiMessages([...newMessages, { role: 'assistant', content: `Error: ${err}` }]); setIsStreaming(false); },
     });
   };
 
-  const switchLevel = (level: string) => {
-    setSelectedLevel(level);
-    startCompanyPrep(selectedCompany, level);
-  };
+  const switchLevel = (level: string) => { setSelectedLevel(level); startCompanyPrep(selectedCompany, level); };
 
-  // ===== AI Self Intro Generation =====
-  const generateIntro = async () => {
-    setIntroGenerating(true);
-    const { name, role, targetCompany, experience, strengths, whyThisRole } = introForm;
-    const prompt = `Generate a self-introduction script for:
-Name: ${name || user?.name || 'Student'}
-Role: ${role || 'Software Developer'}
-Target Company: ${targetCompany || config.companies[0]}
-Education: ${user?.specialization || config.label} from ${user?.college || 'my college'}, ${user?.year || 'current year'}
-Experience: ${experience || 'Fresher with project experience'}
-Strengths: ${strengths || 'analytical thinking, problem solving'}
-Why this role: ${whyThisRole || 'passionate about the field'}
-
-Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confident.`;
-
-    let fullText = '';
-    await streamChat({
-      messages: [{ role: 'user', content: prompt }],
-      mode: 'self-intro-generate',
-      context: { domain, userName: name || user?.name || 'Student' },
-      onDelta: (chunk) => { fullText += chunk; },
-      onDone: () => {
-        const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 5);
-        setIntroScript(lines.length > 0 ? lines : ['Good morning. My name is ' + (name || 'Student') + '.']);
-        setCurrentLine(0);
-        setSpokenLines(new Set());
-        setIntroGenerating(false);
-        setStage('self-intro-practice');
-      },
-      onError: () => {
-        // Fallback to local generation
-        const lines = [
-          `Good morning. My name is ${name || 'Student'}.`,
-          `I am a ${user?.year || 'current'} student at ${user?.college || 'my college'}, specializing in ${user?.specialization || config.label}.`,
-          `${experience ? `In terms of experience, ${experience}.` : `I have been actively building my skills through projects and self-study.`}`,
-          `${strengths ? `My key strengths include ${strengths}.` : `I consider analytical thinking and persistence to be my strongest qualities.`}`,
-          `${whyThisRole ? `I am drawn to ${targetCompany} because ${whyThisRole}.` : `What excites me about ${targetCompany} is the growth opportunity.`}`,
-          `I am confident that my preparation makes me a strong candidate for ${role || 'this role'}.`,
-          `Thank you for this opportunity.`,
-        ];
-        setIntroScript(lines);
-        setCurrentLine(0);
-        setSpokenLines(new Set());
-        setIntroGenerating(false);
-        setStage('self-intro-practice');
-      },
-    });
-  };
-
-  const markLineSpoken = (lineIdx: number) => {
-    const next = new Set(spokenLines);
-    next.add(lineIdx);
-    setSpokenLines(next);
-    if (lineIdx < introScript.length - 1) {
-      setCurrentLine(lineIdx + 1);
-    }
-    if (next.size === introScript.length) {
-      setTimeout(() => getFeedback(), 500);
-    }
-  };
-
-  // ===== AI Feedback on Intro =====
-  const getFeedback = async () => {
-    setStage('self-intro-feedback');
-    setFeedbackLoading(true);
-    setFeedbackText('');
-
-    const prompt = `Here is the self-introduction script the student practiced line by line:\n\n${introScript.join('\n')}\n\nProvide specific feedback: overall rating out of 10, 2 things they did well, 3 specific improvements, and a rewritten improved version of any weak lines.`;
-
-    await streamChat({
-      messages: [{ role: 'user', content: prompt }],
-      mode: 'self-intro-feedback',
-      context: { domain, userName: user?.name || 'Student' },
-      onDelta: (chunk) => {
-        setFeedbackText(prev => prev + chunk);
-      },
-      onDone: () => setFeedbackLoading(false),
-      onError: () => {
-        setFeedbackText('**Rating: 7/10**\n\n**What you did well:**\n1. Clear structure with greeting and closing\n2. Covered all key areas\n\n**What to improve:**\n1. Add specific project examples\n2. Quantify achievements where possible\n3. Practice with more natural pauses between lines');
-        setFeedbackLoading(false);
-      },
-    });
-  };
-
-  const startRapidFire = () => {
-    setCurrentRFQ(0);
-    setRfAnswers([]);
-    setRfInput('');
-    setStage('rapid-fire');
-  };
-
+  const startRapidFire = () => { setCurrentRFQ(0); setRfAnswers([]); setRfInput(''); setStage('rapid-fire'); };
   const submitRFAnswer = () => {
     if (!rfInput.trim()) return;
     setRfAnswers(prev => [...prev, rfInput]);
     setRfInput('');
     const questions = rapidFireQuestions[domain] || rapidFireQuestions.engineering;
-    if (currentRFQ < questions.length - 1) {
-      setCurrentRFQ(prev => prev + 1);
+    if (currentRFQ < questions.length - 1) setCurrentRFQ(prev => prev + 1);
+  };
+
+  // Mindset scenario submit
+  const submitScenarioAnswer = () => {
+    if (!scenarioInput.trim()) return;
+    setScenarioAnswers(prev => [...prev, scenarioInput]);
+    setScenarioInput('');
+    const scenarios = scenarioQuestions[domain] || scenarioQuestions.engineering;
+    if (scenarioIdx < scenarios.length - 1) {
+      setScenarioIdx(prev => prev + 1);
+    } else {
+      analyzeMindset();
     }
   };
 
+  const analyzeMindset = async () => {
+    setStage('mindset-results');
+    setMindsetAnalysisLoading(true);
+    setMindsetAnalysis('');
+
+    const scenarios = scenarioQuestions[domain] || scenarioQuestions.engineering;
+    const qa = scenarios.map((s, i) => `Scenario: ${s.scenario}\nStudent's Response: ${scenarioAnswers[i] || '(not answered)'}`).join('\n\n');
+
+    const prompt = `Analyze this student's responses to interview mindset scenarios for ${config.label} domain.
+
+${qa}
+
+Provide a detailed, encouraging analysis:
+1. **Overall Mindset Score**: Rate out of 100
+2. **Confidence Level**: How confident are their responses?
+3. **Emotional Intelligence**: How well do they handle pressure?
+4. **Professionalism**: Is their approach professional?
+5. **Top 3 Strengths**: What they did well
+6. **Top 3 Areas to Improve**: Specific, actionable advice
+7. **Better Approach for Weakest Answer**: Rewrite their weakest response with a model answer
+8. **Final Encouragement**: A personalized motivational message
+
+Be specific to Indian ${config.label} placements/exams. Be encouraging but honest.`;
+
+    let fullText = '';
+    await streamChat({
+      messages: [{ role: 'user', content: prompt }],
+      mode: 'interview-prep',
+      context: { domain, userName: user?.name || 'Student' },
+      onDelta: (chunk) => { fullText += chunk; setMindsetAnalysis(fullText); },
+      onDone: () => setMindsetAnalysisLoading(false),
+      onError: () => { setMindsetAnalysis('**Mindset Score: 72/100**\n\nYou showed good awareness but can improve on handling pressure scenarios. Practice the "Pause and Redirect" technique.'); setMindsetAnalysisLoading(false); },
+    });
+  };
+
   const rfQuestions = rapidFireQuestions[domain] || rapidFireQuestions.engineering;
+  const scenarios = scenarioQuestions[domain] || scenarioQuestions.engineering;
 
   const BackButton = ({ to }: { to: Stage }) => (
     <button onClick={() => setStage(to)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -263,7 +193,6 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
 
   // ===== OVERVIEW =====
   if (stage === 'overview') {
-    // Simulated applicant data based on company seats
     const applicantData = companyData.map(c => {
       const info = (config.companyData as Record<string, any>)?.[c.name];
       const seats = info?.seats || 500;
@@ -279,7 +208,7 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
           <p className="text-sm text-muted-foreground">{config.interviewText}</p>
         </div>
 
-        {/* Applicants & Probability Overview */}
+        {/* Competition Analysis */}
         <div className="bg-card rounded-2xl border border-border p-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-accent" /> {isHi ? 'प्रतिस्पर्धा विश्लेषण' : 'Competition Analysis'}</h3>
           <div className="space-y-3">
@@ -291,9 +220,7 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground">{c.salary}</span>
                   </div>
                   <div className="flex items-center gap-4 mt-1">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Users className="w-3 h-3" /> {c.applicants.toLocaleString()} {isHi ? 'आवेदक' : 'applicants'}
-                    </span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> {c.applicants.toLocaleString()} {isHi ? 'आवेदक' : 'applicants'}</span>
                     <span className="text-xs text-muted-foreground">{c.seats} {isHi ? 'सीटें' : 'seats'}</span>
                   </div>
                 </div>
@@ -318,7 +245,6 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm"><MapPin className="w-4 h-4 text-accent" /> {isHi ? 'क्षेत्र' : 'Region'}: {user?.city || 'Your Area'}</div>
               <div className="flex items-center gap-2 text-sm"><Building className="w-4 h-4 text-accent" /> {companyData.length} {isHi ? 'कंपनियां भर्ती कर रही हैं' : 'companies hiring'}</div>
-              <div className="text-xs text-muted-foreground mt-2">{isHi ? 'वर्तमान संभावना' : 'Current hire probability'}: <span className="text-accent font-bold">{readinessScore}%</span></div>
               <button onClick={() => setStage('job-target')} className="mt-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover-scale flex items-center gap-2">
                 {isHi ? 'कंपनियां देखें' : 'Explore Companies'} <ArrowRight className="w-4 h-4" />
               </button>
@@ -337,7 +263,6 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
         {/* Stage 2 - Company Prep */}
         <div className="bg-card rounded-2xl border border-border p-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Building className="w-4 h-4 text-accent" /> {isHi ? 'चरण 2 — कंपनी-विशिष्ट तैयारी' : 'Stage 2 — Company-Specific Prep'}</h3>
-          <p className="text-sm text-muted-foreground mb-3">{isHi ? 'स्तर और कंपनी चुनकर AI कोच से तैयारी करें' : 'Pick a level to start AI-powered interactive prep with your dream company.'}</p>
           <div className="grid grid-cols-3 gap-3">
             {[
               { level: 'Foundation', desc: isHi ? 'बेसिक प्रश्न' : 'Basic questions every candidate must nail', icon: BookOpen },
@@ -360,28 +285,24 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
           <div className="space-y-3 text-sm">
             <div className="p-3 rounded-xl bg-muted/50">
               <p className="font-medium">{isHi ? 'तैयारी स्कोर' : 'Readiness Score'}: <span className="text-accent">{readinessScore}%</span></p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {readinessScore < 50 ? (isHi ? `${config.vaultTopics[0]} और कम्युनिकेशन पर फोकस करें` : `Focus on ${config.vaultTopics[0]} and communication skills`) :
-                 readinessScore < 75 ? (isHi ? `मॉक इंटरव्यू का अभ्यास करें` : `Practice mock interviews to reach 75%`) :
-                 (isHi ? 'बॉडी लैंग्वेज और व्यवहार उत्तर पॉलिश करें' : 'Polish behavioral answers and body language')}
-              </p>
               <div className="h-2 bg-muted rounded-full overflow-hidden mt-2">
                 <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${readinessScore}%` }} />
               </div>
             </div>
             <button onClick={() => setStage('behavioral')} className="w-full px-4 py-3 rounded-xl bg-accent/5 border border-accent/20 text-left hover:bg-accent/10 transition-all">
               <p className="font-medium text-xs flex items-center gap-2"><Eye className="w-4 h-4 text-accent" /> {isHi ? 'व्यवहार और संचार गाइड' : 'Formal Behavior & Communication Guide'}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'ड्रेस कोड, बॉडी लैंग्वेज, STAR मेथड' : `Dress code, body language, STAR method — personalized for ${user?.name || 'you'}`}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'ड्रेस कोड, बॉडी लैंग्वेज, STAR मेथड' : 'Dress code, body language, STAR method'}</p>
             </button>
           </div>
         </div>
 
-        {/* Mindset */}
-        <button onClick={() => setStage('mindset')} className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-accent/10 transition-all">
+        {/* Interview Mindset & Confidence — AI-Based Interactive */}
+        <button onClick={() => { setStage('mindset'); setMindsetStep(0); setScenarioIdx(0); setScenarioAnswers([]); setMindsetAnalysis(''); }}
+          className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-5 flex items-center gap-4 text-left hover:bg-accent/10 transition-all">
           <div className="w-12 h-12 rounded-xl bg-accent/20 text-accent flex items-center justify-center"><Heart className="w-6 h-6" /></div>
           <div className="flex-1">
-            <p className="font-semibold">{isHi ? 'इंटरव्यू माइंडसेट और आत्मविश्वास' : 'Interview Mindset & Confidence'}</p>
-            <p className="text-xs text-muted-foreground">{isHi ? 'प्रेरणा, मानसिक तैयारी, नैतिकता' : 'Affirmations, mental preparation, ethics, and winning under pressure'}</p>
+            <p className="font-semibold">{isHi ? 'इंटरव्यू माइंडसेट और आत्मविश्वास (AI)' : 'Interview Mindset & Confidence (AI-Powered)'}</p>
+            <p className="text-xs text-muted-foreground">{isHi ? 'जानकारी → वीडियो → AI परिदृश्य क्विज़ → विश्लेषण' : 'Learn → Watch → AI Scenario Quiz → Get Personalized Analysis'}</p>
           </div>
           <ArrowRight className="w-5 h-5 text-accent" />
         </button>
@@ -389,12 +310,7 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
         {/* Interview Practice */}
         <div className="bg-card rounded-2xl border border-border p-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Mic className="w-4 h-4 text-accent" /> {isHi ? 'इंटरव्यू अभ्यास' : 'Interview Practice'}</h3>
-          <div className="grid md:grid-cols-3 gap-4">
-            <button onClick={() => setStage('self-intro-form')} className="p-4 rounded-xl border border-border text-left hover:border-accent/50 transition-all group">
-              <MessageSquare className="w-5 h-5 text-accent mb-2" />
-              <p className="text-sm font-medium">{isHi ? 'सेल्फ इंट्रोडक्शन' : 'Self Introduction'}</p>
-              <p className="text-xs text-muted-foreground mt-1">{isHi ? 'AI से स्क्रिप्ट बनवाएं, लाइन बाय लाइन अभ्यास करें' : 'AI generates your script, practice line by line'}</p>
-            </button>
+          <div className="grid md:grid-cols-2 gap-4">
             <button onClick={startRapidFire} className="p-4 rounded-xl border border-border text-left hover:border-accent/50 transition-all group">
               <Mic className="w-5 h-5 text-accent mb-2" />
               <p className="text-sm font-medium">{isHi ? 'रैपिड फायर' : 'Rapid Fire'}</p>
@@ -411,97 +327,197 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
     );
   }
 
-  // ===== MINDSET =====
+  // ===== MINDSET — 3-STEP AI MODULE =====
   if (stage === 'mindset') {
     const name = user?.name || 'Student';
     const targetRole = user?.dreamCompany || config.companies[0];
+
+    // STEP 0: Information & Tips
+    if (mindsetStep === 0) {
+      return (
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+          <BackButton to="overview" />
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">{isHi ? 'माइंडसेट और आत्मविश्वास' : 'Mindset & Confidence'}</h1>
+            <div className="flex gap-1">
+              {['Info', 'Videos', 'Quiz'].map((s, i) => (
+                <span key={s} className={`px-3 py-1 rounded-lg text-xs font-medium ${i === mindsetStep ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>{s}</span>
+              ))}
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">{isHi ? `${name}, इंटरव्यू रूम में जाने से पहले यह जानना ज़रूरी है` : `Everything ${name} needs to know before walking into that room.`}</p>
+
+          {/* Affirmations */}
+          <div className="bg-card rounded-2xl border border-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Heart className="w-4 h-4 text-accent" /> {isHi ? 'दैनिक प्रतिज्ञा' : 'Your Daily Affirmations'}</h3>
+            <div className="space-y-3">
+              {[
+                isHi ? `मैं ${name} हूँ, और मैंने यहाँ होने के लिए कड़ी मेहनत की है।` : `I am ${name}, and I have worked hard to be here.`,
+                isHi ? `${targetRole} के लिए मेरी तैयारी ने मुझे पहले से मजबूत बनाया है।` : `My preparation for ${targetRole} has made me stronger.`,
+                isHi ? `मुझे परफेक्ट होने की ज़रूरत नहीं। मुझे आत्मविश्वासी होना है।` : `I don't need to be perfect. I need to be confident.`,
+                isHi ? `हर अस्वीकृति एक पुनर्निर्देशन है।` : `Every rejection is a redirect.`,
+              ].map((aff, i) => (
+                <div key={i} className="p-4 rounded-xl bg-accent/5 border border-accent/10 text-sm italic leading-relaxed flex items-start gap-3">
+                  <span className="text-accent text-lg">✨</span><span>{aff}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pressure Tips */}
+          <div className="bg-card rounded-2xl border border-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Sparkles className="w-4 h-4 text-accent" /> {isHi ? 'दबाव में कैसे जीतें' : 'How to Win Under Pressure'}</h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              {[
+                { title: isHi ? 'ठहरें' : 'The Pause', desc: isHi ? '"बहुत अच्छा प्रश्न है, मुझे सोचने दीजिए"' : '"Great question, let me think." Buys time and shows composure.', emoji: '⏸️' },
+                { title: isHi ? 'रीडायरेक्ट' : 'The Redirect', desc: isHi ? 'अगर अटक जाएं तो "मैंने एक समान स्थिति में..."' : '"I haven\'t encountered that, but in a similar situation..."', emoji: '🔄' },
+                { title: isHi ? 'बॉडी लैंग्वेज' : 'Body Language', desc: isHi ? 'बाहें खोलें, पीठ सीधी, शांत रहें।' : 'Open arms, straight back. Your body tells your brain you\'re confident.', emoji: '💪' },
+                { title: isHi ? '"मैं करूँगा"' : '"I Will"', desc: isHi ? '"मैं सोचता हूँ" को "मैं करूँगा" से बदलें।' : 'Replace "I think" with "I will." Confident language changes perception.', emoji: '🚀' },
+              ].map((tip) => (
+                <div key={tip.title} className="p-4 rounded-xl bg-accent/5 border border-accent/10">
+                  <p className="font-medium text-sm flex items-center gap-2"><span className="text-xl">{tip.emoji}</span> {tip.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{tip.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mental Prep Checklist */}
+          <div className="bg-card rounded-2xl border border-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Brain className="w-4 h-4 text-accent" /> {isHi ? 'मानसिक तैयारी गाइड' : 'Mental Preparation Guide'}</h3>
+            <MentalPrepChecklist isHi={isHi} />
+          </div>
+
+          {/* Ethics */}
+          <div className="bg-card rounded-2xl border border-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Shield className="w-4 h-4 text-accent" /> {isHi ? 'नैतिकता' : 'Ethics & Integrity'}</h3>
+            <div className="space-y-3 text-sm">
+              {[
+                { title: isHi ? 'ईमानदार रहें' : 'Be Honest', desc: isHi ? 'कौशल न बढ़ाएं।' : 'Never exaggerate skills. Honesty shows maturity.' },
+                { title: isHi ? 'प्रक्रिया का सम्मान' : 'Respect the Process', desc: isHi ? 'पिछले नियोक्ता की बुराई न करें।' : 'Don\'t badmouth previous employers.' },
+                { title: isHi ? 'कृतज्ञता' : 'Show Gratitude', desc: isHi ? 'धन्यवाद संदेश भेजें।' : 'Thank the interviewer. Send a thank-you message after.' },
+              ].map((item) => (
+                <div key={item.title} className="p-4 rounded-xl bg-muted/30 border border-border">
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={() => setMindsetStep(1)} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-semibold hover-scale flex items-center justify-center gap-2">
+            {isHi ? 'अगला: वीडियो देखें' : 'Next: Watch Videos'} <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      );
+    }
+
+    // STEP 1: Videos
+    if (mindsetStep === 1) {
+      return (
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+          <BackButton to="overview" />
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">{isHi ? 'वीडियो गाइड' : 'Video Guide'}</h1>
+            <div className="flex gap-1">
+              {['Info', 'Videos', 'Quiz'].map((s, i) => (
+                <span key={s} className={`px-3 py-1 rounded-lg text-xs font-medium ${i === 1 ? 'bg-accent text-accent-foreground' : i < 1 ? 'bg-accent/20 text-accent' : 'bg-muted text-muted-foreground'}`}>{s}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+            <h3 className="font-semibold flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> {isHi ? 'प्रेरणादायक वीडियो' : 'Motivational Videos'}</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="rounded-xl overflow-hidden aspect-video">
+                <iframe src="https://www.youtube.com/embed/ZXsQAXx_ao0" className="w-full h-full" allowFullScreen title="Motivational" />
+              </div>
+              <div className="rounded-xl overflow-hidden aspect-video">
+                <iframe src="https://www.youtube.com/embed/UNQhuFL6CWg" className="w-full h-full" allowFullScreen title="Interview Tips" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> {isHi ? 'इंटरव्यू टिप्स' : 'Interview Day Tips'}</h3>
+            <div className="rounded-xl overflow-hidden aspect-video">
+              <iframe src="https://www.youtube.com/embed/HG68Ymazo18" className="w-full h-full" allowFullScreen title="Interview Day" />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={() => setMindsetStep(0)} className="flex-1 py-3 rounded-xl bg-muted text-foreground font-medium hover-scale">
+              {isHi ? 'पीछे' : 'Back'}
+            </button>
+            <button onClick={() => { setMindsetStep(2); setScenarioIdx(0); setScenarioAnswers([]); setScenarioInput(''); }} className="flex-1 py-3 rounded-xl bg-accent text-accent-foreground font-semibold hover-scale flex items-center justify-center gap-2">
+              {isHi ? 'अगला: AI क्विज़ शुरू करें' : 'Next: Start AI Quiz'} <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // STEP 2: Scenario Quiz
     return (
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
         <BackButton to="overview" />
-        <h1 className="text-2xl font-bold">{isHi ? 'इंटरव्यू माइंडसेट और आत्मविश्वास' : 'Interview Mindset & Confidence'}</h1>
-        <p className="text-sm text-muted-foreground">{isHi ? `${name}, इंटरव्यू रूम में जाने से पहले यह जानना ज़रूरी है` : `Everything ${name} needs to know before walking into that room.`}</p>
-
-        {/* Motivational Video */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> {isHi ? 'प्रेरणादायक वीडियो' : 'Motivational Videos'}</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-xl overflow-hidden aspect-video">
-              <iframe src="https://www.youtube.com/embed/ZXsQAXx_ao0" className="w-full h-full" allowFullScreen title="Motivational" />
-            </div>
-            <div className="rounded-xl overflow-hidden aspect-video">
-              <iframe src="https://www.youtube.com/embed/UNQhuFL6CWg" className="w-full h-full" allowFullScreen title="Interview Tips" />
-            </div>
-          </div>
-        </div>
-
-        {/* Affirmations */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Heart className="w-4 h-4 text-accent" /> {isHi ? 'दैनिक प्रतिज्ञा' : 'Your Daily Affirmations'}</h3>
-          <div className="space-y-3">
-            {[
-              isHi ? `मैं ${name} हूँ, और मैंने यहाँ होने के लिए कड़ी मेहनत की है।` : `I am ${name}, and I have worked hard to be here. I deserve this opportunity.`,
-              isHi ? `${targetRole} के लिए मेरी तैयारी ने मुझे पहले से मजबूत बनाया है।` : `My preparation for ${targetRole} has made me stronger than I was yesterday.`,
-              isHi ? `मुझे परफेक्ट होने की ज़रूरत नहीं। मुझे उपस्थित, ईमानदार और आत्मविश्वासी होना है।` : `I do not need to be perfect. I need to be present, honest, and confident.`,
-              isHi ? `हर अस्वीकृति एक पुनर्निर्देशन है।` : `Every rejection is a redirect. Every interview is practice for the one that changes everything.`,
-              isHi ? config.affirmationHi.replace(/"/g, '') : config.affirmation.replace(/"/g, ''),
-            ].map((aff, i) => (
-              <div key={i} className="p-4 rounded-xl bg-accent/5 border border-accent/10 text-sm italic leading-relaxed flex items-start gap-3">
-                <span className="text-accent text-lg">✨</span>
-                <span>{aff}</span>
-              </div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{isHi ? 'परिदृश्य क्विज़' : 'Scenario Quiz'}</h1>
+          <div className="flex gap-1">
+            {['Info', 'Videos', 'Quiz'].map((s, i) => (
+              <span key={s} className={`px-3 py-1 rounded-lg text-xs font-medium ${i === 2 ? 'bg-accent text-accent-foreground' : 'bg-accent/20 text-accent'}`}>{s}</span>
             ))}
           </div>
         </div>
+        <p className="text-sm text-muted-foreground">{isHi ? 'AI आपके उत्तरों का विश्लेषण करेगा और बताएगा कि बेहतर तरीका क्या हो सकता है।' : 'AI will analyze your responses and suggest better approaches.'}</p>
 
-        {/* Mental Preparation Checklist */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Brain className="w-4 h-4 text-accent" /> {isHi ? 'मानसिक तैयारी गाइड' : 'Mental Preparation Guide'}</h3>
-          <MentalPrepChecklist isHi={isHi} />
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${(scenarioAnswers.length / scenarios.length) * 100}%` }} />
         </div>
+        <p className="text-xs text-muted-foreground text-center">{scenarioAnswers.length}/{scenarios.length}</p>
 
-        {/* Ethics */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Shield className="w-4 h-4 text-accent" /> {isHi ? 'नैतिकता और व्यावसायिक अखंडता' : 'Ethics & Professional Integrity'}</h3>
-          <div className="space-y-3 text-sm">
-            {[
-              { title: isHi ? 'ईमानदार रहें' : 'Be Honest', desc: isHi ? 'अपने कौशल या अनुभव को कभी बढ़ा-चढ़ाकर न बताएं।' : 'Never exaggerate your skills. Honesty about what you don\'t know shows maturity.' },
-              { title: isHi ? 'प्रक्रिया का सम्मान करें' : 'Respect the Process', desc: isHi ? 'पिछले नियोक्ता की बुराई न करें।' : 'Don\'t badmouth previous employers. Focus on what you bring.' },
-              { title: isHi ? 'कृतज्ञता दिखाएं' : 'Show Gratitude', desc: isHi ? 'इंटरव्यूअर का समय के लिए धन्यवाद करें।' : 'Thank the interviewer. Send a brief thank-you message after.' },
-              { title: isHi ? 'परिणाम स्वीकार करें' : 'Accept Outcomes Gracefully', desc: isHi ? 'चयन न होने पर फीडबैक मांगें।' : 'If not selected, ask for feedback. Persistence wins.' },
-            ].map((item) => (
-              <div key={item.title} className="p-4 rounded-xl bg-muted/30 border border-border">
-                <p className="font-medium">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
-              </div>
-            ))}
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
+          <p className="text-xs text-accent font-medium">{isHi ? 'परिदृश्य' : 'Scenario'} {scenarioIdx + 1}/{scenarios.length}</p>
+          <p className="text-base font-medium leading-relaxed">{scenarios[scenarioIdx].scenario}</p>
+          <p className="text-xs text-muted-foreground italic">💡 {isHi ? 'संकेत' : 'Hint'}: {scenarios[scenarioIdx].hint}</p>
+
+          <div className="flex gap-2">
+            <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), submitScenarioAnswer())}
+              placeholder={isHi ? 'अपना जवाब विस्तार से लिखें...' : 'Write your detailed response here...'}
+              className="flex-1 px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" rows={4} />
           </div>
+          <button onClick={submitScenarioAnswer} disabled={!scenarioInput.trim()} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale disabled:opacity-40 flex items-center justify-center gap-2">
+            <Send className="w-4 h-4" />
+            {scenarioIdx < scenarios.length - 1 ? (isHi ? 'अगला परिदृश्य' : 'Next Scenario') : (isHi ? 'AI विश्लेषण प्राप्त करें' : 'Get AI Analysis')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== MINDSET RESULTS =====
+  if (stage === 'mindset-results') {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+        <BackButton to="overview" />
+        <h1 className="text-2xl font-bold">{isHi ? 'AI विश्लेषण' : 'AI Mindset Analysis'}</h1>
+
+        {mindsetAnalysisLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin text-accent" /> {isHi ? 'AI विश्लेषण कर रहा है...' : 'AI is analyzing your responses...'}</div>
+        )}
+
+        <div className="bg-card rounded-2xl border border-border p-6 prose prose-sm max-w-none">
+          <ReactMarkdown>{mindsetAnalysis}</ReactMarkdown>
         </div>
 
-        {/* Pressure Tips with Images */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Sparkles className="w-4 h-4 text-accent" /> {isHi ? 'दबाव में कैसे जीतें' : 'How to Win Under Pressure'}</h3>
-          <div className="grid md:grid-cols-2 gap-3">
-            {[
-              { title: isHi ? 'ठहरें' : 'The Pause Technique', desc: isHi ? '"बहुत अच्छा प्रश्न है, मुझे एक पल सोचने दीजिए"' : 'Say "Great question, let me think." It buys time and shows composure.', emoji: '⏸️' },
-              { title: isHi ? 'रीडायरेक्ट' : 'The Redirect', desc: isHi ? 'यदि अटक जाएं, तो "मैंने यह विशिष्ट स्थिति नहीं देखी, लेकिन..."' : 'Pivot: "I haven\'t encountered that, but in a similar situation I..."', emoji: '🔄' },
-              { title: isHi ? 'बॉडी लैंग्वेज' : 'Body Language Reset', desc: isHi ? 'बाहें खोलें, दोनों पैर सीधे, पीठ सीधी।' : 'Uncross arms, feet flat, sit up. Your body tells your brain you\'re confident.', emoji: '💪' },
-              { title: isHi ? '"मैं करूँगा" की शक्ति' : 'Power of "I Will"', desc: isHi ? '"मैं सोचता हूँ" को "मैं करूँगा" से बदलें।' : 'Replace "I think I can" with "I will." Confident language changes perception.', emoji: '🚀' },
-            ].map((tip) => (
-              <div key={tip.title} className="p-4 rounded-xl bg-accent/5 border border-accent/10">
-                <p className="font-medium text-sm flex items-center gap-2"><span className="text-xl">{tip.emoji}</span> {tip.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{tip.desc}</p>
-              </div>
-            ))}
+        {!mindsetAnalysisLoading && (
+          <div className="flex gap-3">
+            <button onClick={() => { setStage('mindset'); setMindsetStep(2); setScenarioIdx(0); setScenarioAnswers([]); setScenarioInput(''); setMindsetAnalysis(''); }}
+              className="flex-1 py-3 rounded-xl bg-muted text-foreground font-medium hover-scale">{isHi ? 'फिर से करें' : 'Retake Quiz'}</button>
+            <button onClick={() => setStage('overview')} className="flex-1 py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale">{isHi ? 'वापस जाएं' : 'Back to Overview'}</button>
           </div>
-        </div>
-
-        {/* Interview Day Video */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Video className="w-4 h-4 text-accent" /> {isHi ? 'इंटरव्यू टिप्स वीडियो' : 'Interview Day Tips'}</h3>
-          <div className="rounded-xl overflow-hidden aspect-video">
-            <iframe src="https://www.youtube.com/embed/HG68Ymazo18" className="w-full h-full" allowFullScreen title="Interview Day" />
-          </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -531,12 +547,11 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
                     <p><span className="font-medium">{isHi ? 'प्रक्रिया' : 'Process'}:</span> {c.process}</p>
                     {c.cities.length > 0 && <p><span className="font-medium">{isHi ? 'शहर' : 'Cities'}:</span> {c.cities.join(', ')}</p>}
                   </div>
-                  <div className="flex gap-2 flex-wrap">{c.skills.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-accent/10 text-accent text-xs">{s}</span>)}</div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-accent rounded-full" style={{ width: `${c.match}%` }} />
                   </div>
                   <button onClick={() => startCompanyPrep(c.name)} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover-scale">
-                    {isHi ? `${c.name} के लिए तैयारी शुरू करें` : `Start Prep for ${c.name}`}
+                    {isHi ? `${c.name} के लिए तैयारी` : `Start Prep for ${c.name}`}
                   </button>
                 </div>
               )}
@@ -559,158 +574,30 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
           <div className="flex gap-2">
             {['Foundation', 'Competitive', 'Placement Ready'].map(l => (
               <button key={l} onClick={() => switchLevel(l)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${selectedLevel === l ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground hover:bg-accent/10'}`}>
-                {l}
-              </button>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${selectedLevel === l ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground hover:bg-accent/10'}`}>{l}</button>
             ))}
           </div>
         </div>
-
         <div className="bg-card rounded-2xl border border-border h-[450px] flex flex-col">
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {aiMessages.filter(m => m.role !== 'user' || aiMessages.indexOf(m) > 0).map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-accent text-accent-foreground rounded-br-md' : 'bg-muted rounded-bl-md'}`}>
-                  {msg.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none [&_p]:mb-1 [&_ul]:mt-1 [&_li]:text-sm">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : msg.content}
+                  {msg.role === 'assistant' ? <div className="prose prose-sm max-w-none"><ReactMarkdown>{msg.content}</ReactMarkdown></div> : msg.content}
                 </div>
               </div>
             ))}
-            {isStreaming && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="w-3 h-3 animate-spin" /> {isHi ? 'AI सोच रहा है...' : 'AI is thinking...'}
-              </div>
-            )}
+            {isStreaming && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> {isHi ? 'AI सोच रहा है...' : 'AI is thinking...'}</div>}
             <div ref={chatEndRef} />
           </div>
           <div className="p-4 border-t border-border flex gap-2">
-            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendChatAnswer()}
-              placeholder={isHi ? 'अपना उत्तर टाइप करें...' : 'Type your answer...'}
-              disabled={isStreaming}
+            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatAnswer()}
+              placeholder={isHi ? 'अपना उत्तर टाइप करें...' : 'Type your answer...'} disabled={isStreaming}
               className="flex-1 px-4 py-2 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50" />
             <button onClick={sendChatAnswer} disabled={!chatInput.trim() || isStreaming} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground hover-scale disabled:opacity-40">
               <Send className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== SELF INTRO FORM =====
-  if (stage === 'self-intro-form') {
-    const inputClass = "w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent";
-    return (
-      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        <BackButton to="overview" />
-        <h2 className="text-lg font-bold">{isHi ? 'सेल्फ इंट्रोडक्शन — आपकी जानकारी' : 'Self Introduction — Your Details'}</h2>
-        <p className="text-sm text-muted-foreground">{isHi ? 'AI आपकी जानकारी से एक पर्सनलाइज़्ड स्क्रिप्ट बनाएगा' : 'AI will create a personalized script from your details to practice line by line.'}</p>
-
-        <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'पूरा नाम' : 'Your Full Name'}</label>
-            <input value={introForm.name} onChange={e => setIntroForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Rahul Sharma" className={inputClass} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'लक्ष्य भूमिका' : 'Target Role / Position'}</label>
-            <input value={introForm.role} onChange={e => setIntroForm(p => ({ ...p, role: e.target.value }))} placeholder="e.g. Software Developer, Bank PO" className={inputClass} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'लक्ष्य कंपनी' : 'Target Company'}</label>
-            <input value={introForm.targetCompany} onChange={e => setIntroForm(p => ({ ...p, targetCompany: e.target.value }))} placeholder="e.g. TCS, SBI, UPSC" className={inputClass} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'अनुभव (संक्षेप)' : 'Your Experience (brief)'}</label>
-            <textarea value={introForm.experience} onChange={e => setIntroForm(p => ({ ...p, experience: e.target.value }))} placeholder="e.g. Interned at XYZ for 3 months" className={`${inputClass} resize-none`} rows={2} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'आपकी ताकतें' : 'Key Strengths'}</label>
-            <input value={introForm.strengths} onChange={e => setIntroForm(p => ({ ...p, strengths: e.target.value }))} placeholder="e.g. problem-solving, teamwork" className={inputClass} />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">{isHi ? 'यह भूमिका क्यों?' : 'Why This Role / Company?'}</label>
-            <textarea value={introForm.whyThisRole} onChange={e => setIntroForm(p => ({ ...p, whyThisRole: e.target.value }))} placeholder="e.g. I admire their work culture" className={`${inputClass} resize-none`} rows={2} />
-          </div>
-          <button onClick={generateIntro} disabled={!introForm.name.trim() || introGenerating}
-            className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale disabled:opacity-40 flex items-center justify-center gap-2">
-            {introGenerating ? <><Loader2 className="w-4 h-4 animate-spin" /> {isHi ? 'AI स्क्रिप्ट बना रहा है...' : 'AI generating script...'}</> :
-              <><Mic className="w-4 h-4" /> {isHi ? 'AI से स्क्रिप्ट बनवाएं' : 'Generate Script with AI'}</>}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== SELF INTRO PRACTICE =====
-  if (stage === 'self-intro-practice') {
-    return (
-      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        <BackButton to="self-intro-form" />
-        <h2 className="text-lg font-bold">{isHi ? 'अपना परिचय अभ्यास करें' : 'Practice Your Introduction'}</h2>
-        <p className="text-sm text-muted-foreground">{isHi ? 'हर लाइन ज़ोर से पढ़ें। पढ़ने के बाद "मैंने बोला" दबाएं।' : 'Read each line aloud. Click "I spoke this" after reading clearly.'}</p>
-
-        <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
-          {introScript.map((line, i) => {
-            const isSpoken = spokenLines.has(i);
-            const isCurrent = i === currentLine;
-            return (
-              <div key={i} className={`flex gap-3 items-start p-3 rounded-xl transition-all ${isCurrent ? 'bg-accent/10 border border-accent/30' : isSpoken ? 'opacity-50' : 'border border-transparent'}`}>
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${isSpoken ? 'bg-accent text-accent-foreground' : isCurrent ? 'bg-accent/20 text-accent' : 'bg-muted text-muted-foreground'}`}>
-                  {isSpoken ? <CheckCircle className="w-4 h-4" /> : i + 1}
-                </span>
-                <div className="flex-1">
-                  <p className={`text-sm leading-relaxed ${isCurrent ? 'font-medium' : ''}`}>{line}</p>
-                  {isCurrent && !isSpoken && (
-                    <button onClick={() => markLineSpoken(i)} className="mt-2 px-3 py-1.5 rounded-lg bg-accent text-accent-foreground text-xs font-medium hover-scale">
-                      {isHi ? 'मैंने यह लाइन बोली' : 'I spoke this line'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="text-center text-xs text-muted-foreground">{spokenLines.size}/{introScript.length} {isHi ? 'लाइन पूर्ण' : 'lines completed'}</div>
-      </div>
-    );
-  }
-
-  // ===== SELF INTRO FEEDBACK (AI) =====
-  if (stage === 'self-intro-feedback') {
-    return (
-      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        <BackButton to="overview" />
-        <h2 className="text-lg font-bold">{isHi ? 'अभ्यास पूर्ण — AI फीडबैक' : 'Practice Complete — AI Feedback'}</h2>
-        <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 text-center">
-          <CheckCircle className="w-12 h-12 text-accent mx-auto mb-3" />
-          <p className="text-lg font-bold">{isHi ? `शाबाश, ${introForm.name || user?.name}!` : `Great job, ${introForm.name || user?.name}!`}</p>
-          <p className="text-sm text-muted-foreground mt-1">{isHi ? `आपने सभी ${introScript.length} लाइन पूर्ण कीं` : `You completed all ${introScript.length} lines.`}</p>
-        </div>
-
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4">{isHi ? 'AI का फीडबैक' : 'AI Feedback'}</h3>
-          {feedbackLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-              <Loader2 className="w-4 h-4 animate-spin" /> {isHi ? 'AI विश्लेषण कर रहा है...' : 'AI analyzing your introduction...'}
-            </div>
-          )}
-          <div className="prose prose-sm max-w-none text-sm">
-            <ReactMarkdown>{feedbackText}</ReactMarkdown>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={() => { setSpokenLines(new Set()); setCurrentLine(0); setStage('self-intro-practice'); }}
-            className="flex-1 py-3 rounded-xl bg-muted text-foreground font-medium hover-scale">
-            {isHi ? 'फिर से अभ्यास करें' : 'Practice Again'}
-          </button>
-          <button onClick={() => setStage('overview')} className="flex-1 py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale">
-            {isHi ? 'वापस जाएं' : 'Back to Interview Prep'}
-          </button>
         </div>
       </div>
     );
@@ -722,45 +609,38 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
         <BackButton to="overview" />
         <h1 className="text-2xl font-bold">{isHi ? 'व्यवहार और संचार गाइड' : 'Behavioral & Communication Guide'}</h1>
-
         <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4">{isHi ? 'STAR विधि' : 'STAR Method'} — {user?.name || 'Student'}</h3>
+          <h3 className="font-semibold mb-4">{isHi ? 'STAR विधि' : 'STAR Method'}</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {[
-              { letter: 'S', title: isHi ? 'स्थिति' : 'Situation', desc: isHi ? 'पृष्ठभूमि बताएं' : 'Set the scene with context' },
-              { letter: 'T', title: isHi ? 'कार्य' : 'Task', desc: isHi ? 'क्या करना था' : 'What was your responsibility' },
-              { letter: 'A', title: isHi ? 'कार्रवाई' : 'Action', desc: isHi ? 'आपने क्या किया' : 'What did you specifically do' },
-              { letter: 'R', title: isHi ? 'परिणाम' : 'Result', desc: isHi ? 'क्या हासिल हुआ' : 'What was the measurable outcome' },
+              { letter: 'S', title: isHi ? 'स्थिति' : 'Situation', desc: isHi ? 'पृष्ठभूमि बताएं' : 'Set the scene' },
+              { letter: 'T', title: isHi ? 'कार्य' : 'Task', desc: isHi ? 'क्या करना था' : 'Your responsibility' },
+              { letter: 'A', title: isHi ? 'कार्रवाई' : 'Action', desc: isHi ? 'आपने क्या किया' : 'What you did' },
+              { letter: 'R', title: isHi ? 'परिणाम' : 'Result', desc: isHi ? 'क्या हासिल हुआ' : 'Measurable outcome' },
             ].map(s => (
               <div key={s.letter} className="p-4 rounded-xl bg-muted/50 flex items-start gap-3">
                 <span className="w-8 h-8 rounded-lg bg-accent text-accent-foreground flex items-center justify-center font-bold text-sm">{s.letter}</span>
-                <div>
-                  <p className="font-medium text-sm">{s.title}</p>
-                  <p className="text-xs text-muted-foreground">{s.desc}</p>
-                </div>
+                <div><p className="font-medium text-sm">{s.title}</p><p className="text-xs text-muted-foreground">{s.desc}</p></div>
               </div>
             ))}
           </div>
         </div>
-
         <div className="bg-card rounded-2xl border border-border p-6">
           <h3 className="font-semibold mb-4">{isHi ? 'ड्रेस कोड' : 'Dress Code & Body Language'}</h3>
           <div className="space-y-3">
             {[
-              { emoji: '👔', tip: isHi ? 'फॉर्मल कपड़े — इस्त्री किए हुए, साफ' : 'Formal attire — ironed, clean, fitting well' },
-              { emoji: '👀', tip: isHi ? 'आँख में आँख डालकर बात करें' : 'Maintain steady eye contact — look at the bridge of their nose if nervous' },
-              { emoji: '🤝', tip: isHi ? 'मज़बूत हैंडशेक — न बहुत कसा, न ढीला' : 'Firm handshake — not crushing, not limp' },
-              { emoji: '🪑', tip: isHi ? 'सीधे बैठें, बाहें न बांधें' : 'Sit upright, don\'t cross arms — open posture shows confidence' },
-              { emoji: '😊', tip: isHi ? 'शुरू और अंत में मुस्कुराएं' : 'Smile at the start and end — it\'s memorable' },
+              { emoji: '👔', tip: isHi ? 'फॉर्मल कपड़े' : 'Formal attire — ironed, clean' },
+              { emoji: '👀', tip: isHi ? 'आँख में आँख' : 'Maintain eye contact' },
+              { emoji: '🤝', tip: isHi ? 'मज़बूत हैंडशेक' : 'Firm handshake' },
+              { emoji: '🪑', tip: isHi ? 'सीधे बैठें' : 'Sit upright, don\'t cross arms' },
+              { emoji: '😊', tip: isHi ? 'मुस्कुराएं' : 'Smile at start and end' },
             ].map(item => (
               <div key={item.emoji} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 text-sm">
-                <span className="text-xl">{item.emoji}</span>
-                <span>{item.tip}</span>
+                <span className="text-xl">{item.emoji}</span><span>{item.tip}</span>
               </div>
             ))}
           </div>
         </div>
-
         <div className="rounded-xl overflow-hidden aspect-video">
           <iframe src="https://www.youtube.com/embed/S1jB5YOp5Oc" className="w-full h-full" allowFullScreen title="Body Language Tips" />
         </div>
@@ -778,23 +658,18 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
           <h2 className="text-lg font-bold">{isHi ? 'रैपिड फायर' : 'Rapid Fire'} — {config.label}</h2>
           <span className="text-xs text-muted-foreground">{rfAnswers.length}/{rfQuestions.length}</span>
         </div>
-
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${(rfAnswers.length / rfQuestions.length) * 100}%` }} />
         </div>
-
         {!allAnswered ? (
           <div className="bg-card rounded-2xl border border-border p-6">
             <p className="text-xs text-accent mb-2">{isHi ? 'प्रश्न' : 'Question'} {currentRFQ + 1}</p>
             <p className="text-lg font-medium mb-4">{rfQuestions[currentRFQ]}</p>
             <div className="flex gap-2">
-              <input value={rfInput} onChange={e => setRfInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && submitRFAnswer()}
+              <input value={rfInput} onChange={e => setRfInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitRFAnswer()}
                 placeholder={isHi ? 'तेज़ उत्तर दें...' : 'Type your quick answer...'}
                 className="flex-1 px-4 py-2 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
-              <button onClick={submitRFAnswer} disabled={!rfInput.trim()} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground hover-scale disabled:opacity-40">
-                <Send className="w-4 h-4" />
-              </button>
+              <button onClick={submitRFAnswer} disabled={!rfInput.trim()} className="px-4 py-2 rounded-xl bg-accent text-accent-foreground hover-scale disabled:opacity-40"><Send className="w-4 h-4" /></button>
             </div>
           </div>
         ) : (
@@ -802,19 +677,16 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
             <div className="text-center">
               <CheckCircle className="w-10 h-10 text-accent mx-auto mb-2" />
               <p className="font-bold text-lg">{isHi ? 'पूर्ण!' : 'Complete!'}</p>
-              <p className="text-sm text-muted-foreground">{rfAnswers.length}/{rfQuestions.length} {isHi ? 'उत्तर दिए' : 'answered'}</p>
             </div>
             <div className="space-y-2">
               {rfQuestions.map((q, i) => (
                 <div key={i} className="p-3 rounded-xl bg-muted/30 text-sm">
                   <p className="font-medium text-xs text-accent">Q{i + 1}: {q}</p>
-                  <p className="text-muted-foreground mt-1">{isHi ? 'आपका उत्तर' : 'Your answer'}: {rfAnswers[i] || '-'}</p>
+                  <p className="text-muted-foreground mt-1">{isHi ? 'उत्तर' : 'Your answer'}: {rfAnswers[i] || '-'}</p>
                 </div>
               ))}
             </div>
-            <button onClick={() => setStage('overview')} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale">
-              {isHi ? 'वापस जाएं' : 'Back to Interview Prep'}
-            </button>
+            <button onClick={() => setStage('overview')} className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-medium hover-scale">{isHi ? 'वापस' : 'Back to Interview Prep'}</button>
           </div>
         )}
       </div>
@@ -824,7 +696,6 @@ Return ONLY the script lines, one per line, 6-8 lines. Make it natural and confi
   return null;
 }
 
-// Interactive checklist component
 function MentalPrepChecklist({ isHi }: { isHi: boolean }) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (id: string) => {
@@ -835,22 +706,19 @@ function MentalPrepChecklist({ isHi }: { isHi: boolean }) {
 
   const sections = [
     { title: isHi ? 'इंटरव्यू से पहली रात' : 'Night Before', items: [
-      { id: 'clothes', text: isHi ? 'कपड़े तैयार करें — फॉर्मल, इस्त्री किए' : 'Lay out clothes — formal, ironed, clean' },
-      { id: 'resume', text: isHi ? 'रिज्यूमे एक बार रिव्यू करें' : 'Review resume once — know every line' },
-      { id: 'sleep', text: isHi ? '7-8 घंटे सोएं' : 'Sleep 7-8 hours — your brain needs it' },
-      { id: 'nocram', text: isHi ? 'आखिरी समय में न पढ़ें' : 'No last-minute cramming — trust your prep' },
+      { id: 'clothes', text: isHi ? 'कपड़े तैयार करें' : 'Lay out clothes — formal, ironed' },
+      { id: 'resume', text: isHi ? 'रिज्यूमे रिव्यू करें' : 'Review resume — know every line' },
+      { id: 'sleep', text: isHi ? '7-8 घंटे सोएं' : 'Sleep 7-8 hours' },
     ]},
-    { title: isHi ? 'इंटरव्यू की सुबह' : 'Morning Of', items: [
-      { id: 'wake', text: isHi ? '2 घंटे पहले उठें' : 'Wake 2 hours early — no rushing' },
-      { id: 'eat', text: isHi ? 'हल्का भोजन करें' : 'Eat light, healthy meal' },
-      { id: 'mirror', text: isHi ? 'शीशे में अभ्यास करें' : 'Practice intro once in mirror' },
+    { title: isHi ? 'सुबह' : 'Morning Of', items: [
+      { id: 'wake', text: isHi ? '2 घंटे पहले उठें' : 'Wake 2 hours early' },
+      { id: 'eat', text: isHi ? 'हल्का भोजन' : 'Eat light, healthy meal' },
       { id: 'arrive', text: isHi ? '15 मिनट पहले पहुंचें' : 'Arrive 15 minutes early' },
     ]},
-    { title: isHi ? 'इंटरव्यू के दौरान' : 'During Interview', items: [
-      { id: 'breathe', text: isHi ? 'धीरे सांस लें — 4 सेकंड अंदर, 4 बाहर' : 'Breathe slowly — 4 sec in, 4 sec out' },
-      { id: 'listen', text: isHi ? 'पूरा सुनें, फिर 2 सेकंड रुकें' : 'Listen fully, pause 2 seconds before answering' },
-      { id: 'dunno', text: isHi ? '"मैंने यह नहीं किया, लेकिन मेरा तरीका होगा..."' : '"I haven\'t worked with that, but here\'s how I\'d approach it"' },
-      { id: 'ask', text: isHi ? 'अंत में एक सोचा-समझा प्रश्न पूछें' : 'Ask one thoughtful question at the end' },
+    { title: isHi ? 'दौरान' : 'During Interview', items: [
+      { id: 'breathe', text: isHi ? 'धीरे सांस लें' : 'Breathe slowly — 4 sec in, 4 out' },
+      { id: 'listen', text: isHi ? 'पूरा सुनें, 2 सेकंड रुकें' : 'Listen fully, pause 2 seconds' },
+      { id: 'ask', text: isHi ? 'अंत में प्रश्न पूछें' : 'Ask one thoughtful question at end' },
     ]},
   ];
 
