@@ -21,6 +21,7 @@ import Profile from "./pages/dashboard/Profile";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import Companies from "./pages/dashboard/Companies";
 import Jobs from "./pages/dashboard/Jobs";
+import SpeechPractice from "./pages/dashboard/SpeechPractice";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="settings" element={<SettingsPage />} />
               <Route path="companies" element={<Companies />} />
               <Route path="jobs" element={<Jobs />} />
+              <Route path="speech" element={<SpeechPractice />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
