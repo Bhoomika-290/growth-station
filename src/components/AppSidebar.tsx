@@ -1,4 +1,4 @@
-import { Home, CalendarDays, Brain, Mic, FileText, BookOpen, Users, User, Settings, Building, Briefcase } from 'lucide-react';
+import { Home, CalendarDays, Brain, Mic, FileText, BookOpen, Users, User, Settings, Building, Briefcase, AudioLines } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -13,6 +13,7 @@ const navItems = [
   { title: 'Weekly Plan', url: '/dashboard/weekly', icon: CalendarDays },
   { title: 'Quizzes', url: '/dashboard/quizzes', icon: Brain },
   { title: 'Interview Prep', url: '/dashboard/interview', icon: Mic },
+  { title: 'Speech Practice', url: '/dashboard/speech', icon: AudioLines },
   { title: 'Resume', url: '/dashboard/resume', icon: FileText },
   { title: 'Knowledge Vault', url: '/dashboard/vault', icon: BookOpen },
   { title: 'Companies', url: '/dashboard/companies', icon: Building },
