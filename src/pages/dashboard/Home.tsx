@@ -78,7 +78,6 @@ export default function Home() {
     };
     fetchLeaderboard();
 
-    // Real-time subscription
     const channel = supabase
       .channel('leaderboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -90,10 +89,8 @@ export default function Home() {
   }, []);
 
   const leaderboard = useMemo(() => {
-    // If we have DB data, use it; otherwise fall back to generated data
     if (dbLeaderboard.length > 0) {
       const entries = dbLeaderboard.map(d => ({ name: d.name, score: d.score, locality: d.city || user?.city || 'Your Area' }));
-      // Ensure current user is in the list
       const userName = user?.name || 'You';
       if (!entries.find(e => e.name === userName)) {
         const userScore = 100 + tasksDone * 5;
@@ -103,7 +100,6 @@ export default function Home() {
       return entries.slice(0, 8);
     }
 
-    // Fallback dummy data
     const names = domain === 'engineering'
       ? ['Aarav S.', 'Priya M.', 'Rohit K.', 'Sneha J.', 'Vikram T.', 'Ananya R.', 'Karan P.', 'Neha G.']
       : domain === 'commerce'
@@ -248,6 +244,12 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
 
   const knownCompanyInfo = probCompany ? (config.companyData as Record<string, any>)?.[probCompany] : null;
 
+  // Pie chart colors - vivid, distinct
+  const PIE_BEFORE_FILL = '#EF4444'; // red
+  const PIE_BEFORE_BG = '#374151'; // dark gray
+  const PIE_AFTER_FILL = '#22C55E'; // green
+  const PIE_AFTER_BG = '#374151'; // dark gray
+
   return (
     <div className="max-w-5xl space-y-5 animate-fade-in">
       {/* Hero Banner */}
@@ -296,41 +298,46 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
 
         {probBefore !== null && probAfter !== null && (
           <div className="animate-fade-in">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               {/* Before */}
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">{isHi ? 'अभी' : 'Before Prep'}</p>
-                <div className="w-28 h-28 mx-auto relative">
+                <p className="text-xs font-semibold mb-2 uppercase tracking-wide text-destructive">{isHi ? 'तैयारी से पहले' : '🔴 Before Prep'}</p>
+                <div className="w-32 h-32 mx-auto relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPie>
-                      <Pie data={[{ value: probBefore }, { value: 100 - probBefore }]} cx="50%" cy="50%" innerRadius={35} outerRadius={50} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                        <Cell fill="hsl(var(--destructive))" />
-                        <Cell fill="hsl(var(--muted))" />
+                      <Pie data={[{ name: 'Chance', value: probBefore }, { name: 'Gap', value: 100 - probBefore }]} cx="50%" cy="50%" innerRadius={38} outerRadius={55} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                        <Cell fill={PIE_BEFORE_FILL} />
+                        <Cell fill={PIE_BEFORE_BG} />
                       </Pie>
                     </RechartsPie>
                   </ResponsiveContainer>
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold">{probBefore}%</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-destructive">{probBefore}%</span>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'वर्तमान संभावना' : 'Current chance'}</p>
               </div>
               {/* After */}
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide">{isHi ? 'तैयारी के बाद' : 'After Prep'}</p>
-                <div className="w-28 h-28 mx-auto relative">
+                <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: PIE_AFTER_FILL }}>{isHi ? 'तैयारी के बाद' : '🟢 After Prep'}</p>
+                <div className="w-32 h-32 mx-auto relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPie>
-                      <Pie data={[{ value: probAfter }, { value: 100 - probAfter }]} cx="50%" cy="50%" innerRadius={35} outerRadius={50} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                        <Cell fill="hsl(var(--accent))" />
-                        <Cell fill="hsl(var(--border))" />
+                      <Pie data={[{ name: 'Chance', value: probAfter }, { name: 'Gap', value: 100 - probAfter }]} cx="50%" cy="50%" innerRadius={38} outerRadius={55} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                        <Cell fill={PIE_AFTER_FILL} />
+                        <Cell fill={PIE_AFTER_BG} />
                       </Pie>
                     </RechartsPie>
                   </ResponsiveContainer>
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-accent">{probAfter}%</span>
+                  <span className="absolute inset-0 flex items-center justify-center text-xl font-bold" style={{ color: PIE_AFTER_FILL }}>{probAfter}%</span>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'तैयारी के बाद' : 'After preparation'}</p>
               </div>
             </div>
-            <p className="text-center text-xs text-muted-foreground mt-3">
-              {isHi ? `${probCompany} में चयन: ${probAfter - probBefore}% बढ़ सकता है` : `${probCompany}: +${probAfter - probBefore}% improvement with dedicated prep`}
-            </p>
+            <div className="mt-4 p-3 rounded-xl bg-accent/5 border border-accent/20 text-center">
+              <p className="text-sm font-semibold">📈 +{probAfter - probBefore}% {isHi ? 'सुधार संभव' : 'improvement possible'}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isHi ? `${probCompany} में चयन की संभावना बढ़ाने के लिए अभ्यास जारी रखें` : `Keep preparing to maximize your chances at ${probCompany}`}
+              </p>
+            </div>
             {knownCompanyInfo && (
               <div className="mt-3 p-3 rounded-xl bg-muted/50 text-xs text-muted-foreground grid grid-cols-2 gap-2">
                 <p><span className="font-medium text-foreground">{isHi ? 'सीटें' : 'Seats'}:</span> {knownCompanyInfo.seats}</p>
@@ -342,7 +349,7 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
         )}
       </div>
 
-      {/* Quick Quiz — compact */}
+      {/* Quick Quiz */}
       <div className="bg-card rounded-2xl border border-border p-5">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
           <Brain className="w-4 h-4 text-accent" />
@@ -533,7 +540,7 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
         </div>
       </div>
 
-      {/* Leaderboard — compact */}
+      {/* Leaderboard */}
       <div className="bg-card rounded-2xl border border-border p-5">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm"><Trophy className="w-4 h-4 text-accent" /> {isHi ? 'लीडरबोर्ड' : 'Leaderboard'} — {user?.city || 'Your Area'}</h3>
         <div className="space-y-1.5">

@@ -1,90 +1,88 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
-import { Brain, Zap, Clock, Star, Shield, X, ArrowRight, CheckCircle, XCircle, Timer, ArrowLeft } from 'lucide-react';
+import { Brain, Zap, Clock, Star, Shield, X, ArrowRight, CheckCircle, XCircle, Timer, ArrowLeft, BookOpen, Lightbulb } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 
 const quizIcons = [Zap, Clock, Brain, Star, Shield];
 
-// Difficulty levels
 type Difficulty = 'basic' | 'medium' | 'hard';
 
-interface Q { q: string; options: string[]; correct: number; difficulty: Difficulty; company?: string; }
+interface Q { q: string; options: string[]; correct: number; difficulty: Difficulty; company?: string; explanation: string; }
 
-// Extended question banks with difficulty levels
 const questionBank: Record<string, { iq: Q[]; eq: Q[]; rq: Q[] }> = {
   engineering: {
     iq: [
-      { q: 'What is the time complexity of binary search?', options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'], correct: 1, difficulty: 'basic' },
-      { q: 'Which data structure uses FIFO?', options: ['Stack', 'Queue', 'Tree', 'Graph'], correct: 1, difficulty: 'basic' },
-      { q: 'What is 2^10?', options: ['512', '1024', '2048', '256'], correct: 1, difficulty: 'basic' },
-      { q: 'Which sorting algorithm has best average case?', options: ['Bubble Sort', 'Selection Sort', 'Merge Sort', 'Insertion Sort'], correct: 2, difficulty: 'medium' },
-      { q: 'A binary tree with n nodes has how many edges?', options: ['n', 'n-1', 'n+1', '2n'], correct: 1, difficulty: 'medium' },
-      { q: 'What is the amortized time for dynamic array insertion?', options: ['O(n)', 'O(1)', 'O(log n)', 'O(n²)'], correct: 1, difficulty: 'hard', company: 'Google' },
-      { q: 'Detect cycle in directed graph using?', options: ['BFS', 'DFS + coloring', 'Dijkstra', 'Union Find'], correct: 1, difficulty: 'hard', company: 'Amazon' },
-      { q: 'LRU Cache uses which data structures?', options: ['Array + Stack', 'HashMap + DLL', 'Tree + Queue', 'Graph + Heap'], correct: 1, difficulty: 'hard', company: 'Microsoft' },
+      { q: 'What is the time complexity of binary search?', options: ['O(n)', 'O(log n)', 'O(n²)', 'O(1)'], correct: 1, difficulty: 'basic', explanation: 'Binary search divides the search space in half each time, so it takes log₂(n) steps to find the element.' },
+      { q: 'Which data structure uses FIFO?', options: ['Stack', 'Queue', 'Tree', 'Graph'], correct: 1, difficulty: 'basic', explanation: 'Queue follows First-In-First-Out (FIFO) — the element added first is removed first, like a real queue.' },
+      { q: 'What is 2^10?', options: ['512', '1024', '2048', '256'], correct: 1, difficulty: 'basic', explanation: '2^10 = 1024. This is a fundamental number in CS as 1 KB = 1024 bytes.' },
+      { q: 'Which sorting algorithm has best average case?', options: ['Bubble Sort', 'Selection Sort', 'Merge Sort', 'Insertion Sort'], correct: 2, difficulty: 'medium', explanation: 'Merge Sort has O(n log n) average and worst case, making it consistently efficient. Bubble/Selection are O(n²).' },
+      { q: 'A binary tree with n nodes has how many edges?', options: ['n', 'n-1', 'n+1', '2n'], correct: 1, difficulty: 'medium', explanation: 'Every node except the root has exactly one parent edge. So n nodes → n-1 edges.' },
+      { q: 'What is the amortized time for dynamic array insertion?', options: ['O(n)', 'O(1)', 'O(log n)', 'O(n²)'], correct: 1, difficulty: 'hard', company: 'Google', explanation: 'Although occasional resizing costs O(n), spreading that cost across n insertions gives O(1) amortized per insertion.' },
+      { q: 'Detect cycle in directed graph using?', options: ['BFS', 'DFS + coloring', 'Dijkstra', 'Union Find'], correct: 1, difficulty: 'hard', company: 'Amazon', explanation: 'DFS with 3-color marking (white/gray/black) detects back edges which indicate cycles in directed graphs.' },
+      { q: 'LRU Cache uses which data structures?', options: ['Array + Stack', 'HashMap + DLL', 'Tree + Queue', 'Graph + Heap'], correct: 1, difficulty: 'hard', company: 'Microsoft', explanation: 'HashMap gives O(1) lookup, Doubly Linked List gives O(1) insertion/deletion at both ends — perfect for LRU eviction.' },
     ],
     eq: [
-      { q: 'Your teammate pushes buggy code before a demo. You:', options: ['Fix it quietly', 'Call them out publicly', 'Report to manager', 'Discuss privately after'], correct: 3, difficulty: 'basic' },
-      { q: "You disagree with the tech lead's architecture. You:", options: ['Just follow orders', 'Present data-backed alternative', 'Complain to others', 'Refuse to implement'], correct: 1, difficulty: 'medium' },
-      { q: 'A junior dev is struggling. You:', options: ['Let them figure it out', 'Pair program with them', 'Do their work', 'Tell the manager'], correct: 1, difficulty: 'basic' },
-      { q: 'Deadline is tomorrow but code has bugs. You:', options: ['Ship anyway', 'Ask for extension with clear reasoning', 'Pull all-nighter alone', 'Blame QA'], correct: 1, difficulty: 'medium' },
-      { q: 'You receive harsh code review feedback. You:', options: ['Get defensive', 'Ignore it', 'Learn from it and improve', 'Complain to HR'], correct: 2, difficulty: 'basic' },
+      { q: 'Your teammate pushes buggy code before a demo. You:', options: ['Fix it quietly', 'Call them out publicly', 'Report to manager', 'Discuss privately after'], correct: 3, difficulty: 'basic', explanation: 'Private discussion preserves dignity and builds trust. Public call-outs damage team morale and relationships.' },
+      { q: "You disagree with the tech lead's architecture. You:", options: ['Just follow orders', 'Present data-backed alternative', 'Complain to others', 'Refuse to implement'], correct: 1, difficulty: 'medium', explanation: 'Presenting a data-backed alternative shows initiative and respect. It contributes to better decisions without being confrontational.' },
+      { q: 'A junior dev is struggling. You:', options: ['Let them figure it out', 'Pair program with them', 'Do their work', 'Tell the manager'], correct: 1, difficulty: 'basic', explanation: 'Pair programming teaches them while solving the problem. It builds their skills without creating dependency.' },
+      { q: 'Deadline is tomorrow but code has bugs. You:', options: ['Ship anyway', 'Ask for extension with clear reasoning', 'Pull all-nighter alone', 'Blame QA'], correct: 1, difficulty: 'medium', explanation: 'Communicating proactively with reasoning shows professionalism. Shipping buggy code or blaming others damages credibility.' },
+      { q: 'You receive harsh code review feedback. You:', options: ['Get defensive', 'Ignore it', 'Learn from it and improve', 'Complain to HR'], correct: 2, difficulty: 'basic', explanation: 'Code reviews are learning opportunities. Taking feedback constructively accelerates growth and earns respect.' },
     ],
     rq: [
-      { q: 'What does REST stand for?', options: ['Remote Execution Service Tool', 'Representational State Transfer', 'Reliable Server Technology', 'Resource Extraction Standard'], correct: 1, difficulty: 'basic' },
-      { q: 'Which protocol does HTTPS use for encryption?', options: ['SSH', 'TLS/SSL', 'FTP', 'SMTP'], correct: 1, difficulty: 'basic' },
-      { q: 'What is Docker primarily used for?', options: ['Version control', 'Containerization', 'Testing', 'Deployment only'], correct: 1, difficulty: 'medium' },
-      { q: 'SQL JOIN that returns all rows from both tables?', options: ['INNER JOIN', 'LEFT JOIN', 'FULL OUTER JOIN', 'CROSS JOIN'], correct: 2, difficulty: 'medium' },
-      { q: 'What is CI/CD?', options: ['Code Integration/Code Delivery', 'Continuous Integration/Continuous Delivery', 'Central Intelligence/Central Data', 'Code Inspection/Code Debug'], correct: 1, difficulty: 'basic' },
-      { q: 'What is eventual consistency in distributed systems?', options: ['All nodes always in sync', 'Nodes may differ temporarily', 'Data never syncs', 'Only leader has data'], correct: 1, difficulty: 'hard', company: 'Amazon' },
+      { q: 'What does REST stand for?', options: ['Remote Execution Service Tool', 'Representational State Transfer', 'Reliable Server Technology', 'Resource Extraction Standard'], correct: 1, difficulty: 'basic', explanation: 'REST (Representational State Transfer) is an architectural style for APIs using standard HTTP methods (GET, POST, PUT, DELETE).' },
+      { q: 'Which protocol does HTTPS use for encryption?', options: ['SSH', 'TLS/SSL', 'FTP', 'SMTP'], correct: 1, difficulty: 'basic', explanation: 'HTTPS uses TLS (Transport Layer Security) / SSL to encrypt data in transit, preventing man-in-the-middle attacks.' },
+      { q: 'What is Docker primarily used for?', options: ['Version control', 'Containerization', 'Testing', 'Deployment only'], correct: 1, difficulty: 'medium', explanation: 'Docker packages applications with their dependencies into containers, ensuring consistent behavior across environments.' },
+      { q: 'SQL JOIN that returns all rows from both tables?', options: ['INNER JOIN', 'LEFT JOIN', 'FULL OUTER JOIN', 'CROSS JOIN'], correct: 2, difficulty: 'medium', explanation: 'FULL OUTER JOIN returns all rows from both tables, with NULLs where there is no match on either side.' },
+      { q: 'What is CI/CD?', options: ['Code Integration/Code Delivery', 'Continuous Integration/Continuous Delivery', 'Central Intelligence/Central Data', 'Code Inspection/Code Debug'], correct: 1, difficulty: 'basic', explanation: 'CI automatically tests code changes; CD automatically deploys them. Together they speed up reliable software delivery.' },
+      { q: 'What is eventual consistency in distributed systems?', options: ['All nodes always in sync', 'Nodes may differ temporarily', 'Data never syncs', 'Only leader has data'], correct: 1, difficulty: 'hard', company: 'Amazon', explanation: 'In eventual consistency, replicas may be temporarily out of sync but will converge to the same state over time. Used in DynamoDB, Cassandra.' },
     ],
   },
   commerce: {
     iq: [
-      { q: 'If a product costs ₹400 and sells for ₹500, profit % is?', options: ['20%', '25%', '30%', '15%'], correct: 1, difficulty: 'basic' },
-      { q: 'Simple Interest on ₹1000 at 10% for 2 years?', options: ['₹100', '₹200', '₹210', '₹150'], correct: 1, difficulty: 'basic' },
-      { q: 'A train 200m long crosses a pole in 10s. Speed?', options: ['20 m/s', '72 km/h', 'Both A and B', '36 km/h'], correct: 2, difficulty: 'medium' },
-      { q: 'Average of first 10 natural numbers?', options: ['5', '5.5', '6', '4.5'], correct: 1, difficulty: 'basic' },
-      { q: 'If A:B = 2:3 and B:C = 4:5, then A:C = ?', options: ['8:15', '2:5', '4:5', '6:10'], correct: 0, difficulty: 'medium' },
-      { q: 'Compound interest on ₹10000 at 10% for 2 years?', options: ['₹2000', '₹2100', '₹2200', '₹1900'], correct: 1, difficulty: 'hard', company: 'SBI PO' },
+      { q: 'If a product costs ₹400 and sells for ₹500, profit % is?', options: ['20%', '25%', '30%', '15%'], correct: 1, difficulty: 'basic', explanation: 'Profit = ₹100. Profit % = (100/400) × 100 = 25%. Always calculate profit % on cost price, not selling price.' },
+      { q: 'Simple Interest on ₹1000 at 10% for 2 years?', options: ['₹100', '₹200', '₹210', '₹150'], correct: 1, difficulty: 'basic', explanation: 'SI = P × R × T / 100 = 1000 × 10 × 2 / 100 = ₹200. Simple interest is calculated only on the principal.' },
+      { q: 'A train 200m long crosses a pole in 10s. Speed?', options: ['20 m/s', '72 km/h', 'Both A and B', '36 km/h'], correct: 2, difficulty: 'medium', explanation: 'Speed = 200/10 = 20 m/s. Converting: 20 × 18/5 = 72 km/h. So both 20 m/s and 72 km/h are correct.' },
+      { q: 'Average of first 10 natural numbers?', options: ['5', '5.5', '6', '4.5'], correct: 1, difficulty: 'basic', explanation: 'Sum of first n natural numbers = n(n+1)/2 = 55. Average = 55/10 = 5.5. Wait — the correct answer is 5.5!' },
+      { q: 'If A:B = 2:3 and B:C = 4:5, then A:C = ?', options: ['8:15', '2:5', '4:5', '6:10'], correct: 0, difficulty: 'medium', explanation: 'Make B common: A:B = 8:12, B:C = 12:15. So A:C = 8:15. Multiply ratios to equalize the common term.' },
+      { q: 'Compound interest on ₹10000 at 10% for 2 years?', options: ['₹2000', '₹2100', '₹2200', '₹1900'], correct: 1, difficulty: 'hard', company: 'SBI PO', explanation: 'CI = P[(1+R/100)^T - 1] = 10000[(1.1)² - 1] = 10000 × 0.21 = ₹2100. CI > SI because interest earns interest.' },
     ],
     eq: [
-      { q: 'A customer is angry about a service delay. You:', options: ['Argue with them', 'Listen empathetically and resolve', 'Ignore them', 'Pass to someone else'], correct: 1, difficulty: 'basic' },
-      { q: 'You notice a colleague making accounting errors. You:', options: ['Report immediately to boss', 'Help them identify and fix', 'Ignore it', 'Tell other colleagues'], correct: 1, difficulty: 'medium' },
-      { q: 'Your bank has a new policy you disagree with. You:', options: ['Refuse to follow', 'Follow and provide feedback through proper channel', 'Complain publicly', 'Quit'], correct: 1, difficulty: 'medium' },
-      { q: 'A senior gives you credit for their work. You:', options: ['Accept it', 'Clarify the truth respectfully', 'Tell everyone', 'Stay silent'], correct: 1, difficulty: 'basic' },
-      { q: 'You are overloaded with work before an exam. You:', options: ['Skip the exam', 'Prioritize and manage time', 'Do everything poorly', 'Blame your workload'], correct: 1, difficulty: 'basic' },
+      { q: 'A customer is angry about a service delay. You:', options: ['Argue with them', 'Listen empathetically and resolve', 'Ignore them', 'Pass to someone else'], correct: 1, difficulty: 'basic', explanation: 'Active listening + empathy defuses anger. Acknowledging their frustration before solving shows customer-first approach.' },
+      { q: 'You notice a colleague making accounting errors. You:', options: ['Report immediately to boss', 'Help them identify and fix', 'Ignore it', 'Tell other colleagues'], correct: 1, difficulty: 'medium', explanation: 'Helping them fix errors builds trust and prevents future mistakes. It shows leadership without creating conflict.' },
+      { q: 'Your bank has a new policy you disagree with. You:', options: ['Refuse to follow', 'Follow and provide feedback through proper channel', 'Complain publicly', 'Quit'], correct: 1, difficulty: 'medium', explanation: 'Following while providing constructive feedback through proper channels shows professionalism and respect for hierarchy.' },
+      { q: 'A senior gives you credit for their work. You:', options: ['Accept it', 'Clarify the truth respectfully', 'Tell everyone', 'Stay silent'], correct: 1, difficulty: 'basic', explanation: 'Honesty builds long-term credibility. Respectfully clarifying shows integrity — a key trait banks value.' },
+      { q: 'You are overloaded with work before an exam. You:', options: ['Skip the exam', 'Prioritize and manage time', 'Do everything poorly', 'Blame your workload'], correct: 1, difficulty: 'basic', explanation: 'Time management and prioritization are essential banking skills. Create a schedule, delegate what you can.' },
     ],
     rq: [
-      { q: 'What is the full form of NABARD?', options: ['National Bank for Agriculture and Rural Development', 'National Board of Agricultural Research', 'National Bureau of Audit and Revenue', 'None of these'], correct: 0, difficulty: 'basic' },
-      { q: 'Current SLR requirement by RBI is approximately?', options: ['4%', '18%', '23%', '10%'], correct: 1, difficulty: 'medium' },
-      { q: 'What is KYC?', options: ['Keep Your Cash', 'Know Your Customer', 'Key Yield Certificate', 'Knowledge Yearly Check'], correct: 1, difficulty: 'basic' },
-      { q: 'RTGS minimum transfer amount?', options: ['₹1 lakh', '₹2 lakh', '₹50,000', 'No minimum'], correct: 1, difficulty: 'medium' },
-      { q: 'What is NPA in banking?', options: ['New Profit Account', 'Non-Performing Asset', 'National Payment Authority', 'Net Payable Amount'], correct: 1, difficulty: 'basic' },
+      { q: 'What is the full form of NABARD?', options: ['National Bank for Agriculture and Rural Development', 'National Board of Agricultural Research', 'National Bureau of Audit and Revenue', 'None of these'], correct: 0, difficulty: 'basic', explanation: 'NABARD is the apex development bank for agriculture and rural development in India, established in 1982.' },
+      { q: 'Current SLR requirement by RBI is approximately?', options: ['4%', '18%', '23%', '10%'], correct: 1, difficulty: 'medium', explanation: 'SLR (Statutory Liquidity Ratio) is ~18%. Banks must maintain this percentage of deposits in gold, cash, or government securities.' },
+      { q: 'What is KYC?', options: ['Keep Your Cash', 'Know Your Customer', 'Key Yield Certificate', 'Knowledge Yearly Check'], correct: 1, difficulty: 'basic', explanation: 'KYC is a mandatory process to verify customer identity. It helps prevent money laundering and fraud in banking.' },
+      { q: 'RTGS minimum transfer amount?', options: ['₹1 lakh', '₹2 lakh', '₹50,000', 'No minimum'], correct: 1, difficulty: 'medium', explanation: 'RTGS (Real Time Gross Settlement) has a minimum of ₹2 lakh. For smaller amounts, use NEFT or IMPS.' },
+      { q: 'What is NPA in banking?', options: ['New Profit Account', 'Non-Performing Asset', 'National Payment Authority', 'Net Payable Amount'], correct: 1, difficulty: 'basic', explanation: 'NPA is a loan where principal/interest payment is overdue for 90+ days. High NPAs indicate poor asset quality.' },
     ],
   },
   arts: {
     iq: [
-      { q: 'How many schedules are in the Indian Constitution?', options: ['8', '10', '12', '14'], correct: 2, difficulty: 'basic' },
-      { q: 'The Tropic of Cancer passes through how many Indian states?', options: ['6', '7', '8', '9'], correct: 2, difficulty: 'medium' },
-      { q: 'Who was the first President of India?', options: ['Jawaharlal Nehru', 'Rajendra Prasad', 'S. Radhakrishnan', 'Zakir Hussain'], correct: 1, difficulty: 'basic' },
-      { q: 'Article 21 of the Constitution deals with?', options: ['Right to Education', 'Right to Life and Liberty', 'Right to Equality', 'Right to Freedom of Speech'], correct: 1, difficulty: 'basic' },
-      { q: 'The Battle of Plassey was fought in which year?', options: ['1757', '1764', '1857', '1947'], correct: 0, difficulty: 'basic' },
-      { q: 'The concept of "Basic Structure" doctrine came from which case?', options: ['Golaknath', 'Kesavananda Bharati', 'Minerva Mills', 'Maneka Gandhi'], correct: 1, difficulty: 'hard', company: 'UPSC' },
+      { q: 'How many schedules are in the Indian Constitution?', options: ['8', '10', '12', '14'], correct: 2, difficulty: 'basic', explanation: 'The Indian Constitution has 12 Schedules covering topics from languages to anti-defection law.' },
+      { q: 'The Tropic of Cancer passes through how many Indian states?', options: ['6', '7', '8', '9'], correct: 2, difficulty: 'medium', explanation: 'Tropic of Cancer passes through 8 states: Gujarat, Rajasthan, MP, Chhattisgarh, Jharkhand, WB, Tripura, Mizoram.' },
+      { q: 'Who was the first President of India?', options: ['Jawaharlal Nehru', 'Rajendra Prasad', 'S. Radhakrishnan', 'Zakir Hussain'], correct: 1, difficulty: 'basic', explanation: 'Dr. Rajendra Prasad served as the first President of India from 1950-1962, the longest-serving President.' },
+      { q: 'Article 21 of the Constitution deals with?', options: ['Right to Education', 'Right to Life and Liberty', 'Right to Equality', 'Right to Freedom of Speech'], correct: 1, difficulty: 'basic', explanation: 'Article 21 guarantees Right to Life and Personal Liberty. Through judicial interpretation, it includes right to livelihood, privacy, and dignity.' },
+      { q: 'The Battle of Plassey was fought in which year?', options: ['1757', '1764', '1857', '1947'], correct: 0, difficulty: 'basic', explanation: 'Battle of Plassey (1757) was between Siraj-ud-Daulah and Robert Clive. It marked the beginning of British political control in India.' },
+      { q: 'The concept of "Basic Structure" doctrine came from which case?', options: ['Golaknath', 'Kesavananda Bharati', 'Minerva Mills', 'Maneka Gandhi'], correct: 1, difficulty: 'hard', company: 'UPSC', explanation: 'Kesavananda Bharati v. State of Kerala (1973) established that Parliament cannot alter the basic structure of the Constitution.' },
     ],
     eq: [
-      { q: 'As a district magistrate, a flood hits. First priority?', options: ['File report to HQ', 'Organize immediate rescue', 'Wait for orders', 'Call press conference'], correct: 1, difficulty: 'basic' },
-      { q: 'A local politician pressures you to bend rules. You:', options: ['Comply to avoid conflict', 'Politely refuse citing rules', 'Report to media', 'Transfer the case'], correct: 1, difficulty: 'medium' },
-      { q: 'Two communities are in conflict in your district. You:', options: ['Support the majority', 'Impose curfew immediately', 'Initiate dialogue between leaders', 'Wait for state orders'], correct: 2, difficulty: 'hard' },
-      { q: 'A whistleblower reports corruption in your office. You:', options: ['Suppress it', 'Investigate independently', 'Transfer the whistleblower', 'Ignore it'], correct: 1, difficulty: 'medium' },
-      { q: 'You discover your senior officer is corrupt. You:', options: ['Join them', 'Document evidence and report', 'Ignore it', 'Resign'], correct: 1, difficulty: 'basic' },
+      { q: 'As a district magistrate, a flood hits. First priority?', options: ['File report to HQ', 'Organize immediate rescue', 'Wait for orders', 'Call press conference'], correct: 1, difficulty: 'basic', explanation: 'Immediate rescue saves lives. Administrative reporting can follow. A good administrator acts first in emergencies.' },
+      { q: 'A local politician pressures you to bend rules. You:', options: ['Comply to avoid conflict', 'Politely refuse citing rules', 'Report to media', 'Transfer the case'], correct: 1, difficulty: 'medium', explanation: 'Polite refusal citing rules shows firmness with diplomacy — essential for civil servants dealing with political pressure.' },
+      { q: 'Two communities are in conflict in your district. You:', options: ['Support the majority', 'Impose curfew immediately', 'Initiate dialogue between leaders', 'Wait for state orders'], correct: 2, difficulty: 'hard', explanation: 'Dialogue is the first step in conflict resolution. Curfew should be the last resort. A good administrator facilitates peace.' },
+      { q: 'A whistleblower reports corruption in your office. You:', options: ['Suppress it', 'Investigate independently', 'Transfer the whistleblower', 'Ignore it'], correct: 1, difficulty: 'medium', explanation: 'Independent investigation upholds integrity. Protecting whistleblowers and acting on complaints builds institutional trust.' },
+      { q: 'You discover your senior officer is corrupt. You:', options: ['Join them', 'Document evidence and report', 'Ignore it', 'Resign'], correct: 1, difficulty: 'basic', explanation: 'Documenting evidence and reporting through proper channels (Lokpal, CVC) is the ethical and legal duty of a civil servant.' },
     ],
     rq: [
-      { q: 'UPSC Prelims has how many papers?', options: ['1', '2', '3', '4'], correct: 1, difficulty: 'basic' },
-      { q: 'Ethics paper in UPSC Mains is which paper?', options: ['GS Paper I', 'GS Paper II', 'GS Paper III', 'GS Paper IV'], correct: 3, difficulty: 'medium' },
-      { q: 'Which amendment is called Mini Constitution?', options: ['42nd', '44th', '73rd', '86th'], correct: 0, difficulty: 'medium' },
-      { q: 'Panchayati Raj was constitutionalized by which amendment?', options: ['42nd', '73rd', '74th', '86th'], correct: 1, difficulty: 'basic' },
-      { q: 'What is the age limit for UPSC Civil Services (General)?', options: ['30', '32', '35', '28'], correct: 1, difficulty: 'basic' },
+      { q: 'UPSC Prelims has how many papers?', options: ['1', '2', '3', '4'], correct: 1, difficulty: 'basic', explanation: 'UPSC Prelims has 2 papers: GS Paper I (qualifying + merit) and CSAT Paper II (qualifying only, 33% cutoff).' },
+      { q: 'Ethics paper in UPSC Mains is which paper?', options: ['GS Paper I', 'GS Paper II', 'GS Paper III', 'GS Paper IV'], correct: 3, difficulty: 'medium', explanation: 'GS Paper IV covers Ethics, Integrity, and Aptitude. It includes case studies and tests moral reasoning.' },
+      { q: 'Which amendment is called Mini Constitution?', options: ['42nd', '44th', '73rd', '86th'], correct: 0, difficulty: 'medium', explanation: '42nd Amendment (1976) is called Mini Constitution because it made the most comprehensive changes — added DPSP, duties, and changed Preamble.' },
+      { q: 'Panchayati Raj was constitutionalized by which amendment?', options: ['42nd', '73rd', '74th', '86th'], correct: 1, difficulty: 'basic', explanation: '73rd Amendment (1992) added Part IX to the Constitution, giving constitutional status to Panchayati Raj institutions.' },
+      { q: 'What is the age limit for UPSC Civil Services (General)?', options: ['30', '32', '35', '28'], correct: 1, difficulty: 'basic', explanation: 'General category: 32 years. OBC: 35 years. SC/ST: 37 years. Number of attempts also varies by category.' },
     ],
   },
 };
@@ -107,17 +105,16 @@ export default function Quizzes() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
   const [scores, setScores] = useState({ iq: 0, eq: 0, rq: 0 });
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const questions = questionBank[domain] || questionBank.engineering;
   
-  // Filter by difficulty
   const filteredQuestions = {
     iq: questions.iq.filter(q => q.difficulty === selectedDifficulty || selectedDifficulty === 'hard'),
     eq: questions.eq.filter(q => q.difficulty === selectedDifficulty || q.difficulty === 'basic'),
     rq: questions.rq.filter(q => q.difficulty === selectedDifficulty || selectedDifficulty === 'hard'),
   };
 
-  // Ensure minimum 3 questions per section
   const sectionQuestions = filteredQuestions[currentSection].length >= 3 ? filteredQuestions[currentSection] : questions[currentSection].slice(0, 5);
   const currentQuestion = sectionQuestions[currentQ];
   const sectionLabels: Record<QuizSection, string> = { iq: isHi ? 'IQ — विश्लेषणात्मक' : 'IQ — Analytical', eq: isHi ? 'EQ — स्थितिजन्य' : 'EQ — Situational', rq: isHi ? 'RQ — डोमेन ज्ञान' : 'RQ — Domain Knowledge' };
@@ -150,38 +147,41 @@ export default function Quizzes() {
     setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
     setSelectedAnswer(null);
     setShowFeedback(false);
+    setShowExplanation(false);
   };
+
+  const proceedToNext = useCallback(() => {
+    setShowExplanation(false);
+    if (currentQ < sectionQuestions.length - 1) {
+      setCurrentQ(currentQ + 1);
+      setSelectedAnswer(null);
+      setShowFeedback(false);
+      setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
+    } else {
+      const sIdx = sections.indexOf(currentSection);
+      if (sIdx < 2) {
+        setCurrentSection(sections[sIdx + 1]);
+        setCurrentQ(0);
+        setSelectedAnswer(null);
+        setShowFeedback(false);
+        setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
+      } else {
+        setPhase('results');
+        boostRank(selectedDifficulty === 'hard' ? 25 : selectedDifficulty === 'medium' ? 15 : 10);
+        setQuizScores(scores);
+      }
+    }
+  }, [currentQ, currentSection, sectionQuestions.length, sections, boostRank, selectedDifficulty, scores, setQuizScores]);
 
   const handleAnswer = useCallback((ansIdx: number) => {
     if (showFeedback || !currentQuestion) return;
     setSelectedAnswer(ansIdx);
     setShowFeedback(true);
+    setShowExplanation(true);
     const isCorrect = ansIdx === currentQuestion.correct;
     if (isCorrect) setScores(prev => ({ ...prev, [currentSection]: prev[currentSection] + 1 }));
     setAnswers(prev => ({ ...prev, [currentSection]: [...prev[currentSection], ansIdx] }));
-
-    setTimeout(() => {
-      if (currentQ < sectionQuestions.length - 1) {
-        setCurrentQ(currentQ + 1);
-        setSelectedAnswer(null);
-        setShowFeedback(false);
-        setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
-      } else {
-        const sIdx = sections.indexOf(currentSection);
-        if (sIdx < 2) {
-          setCurrentSection(sections[sIdx + 1]);
-          setCurrentQ(0);
-          setSelectedAnswer(null);
-          setShowFeedback(false);
-          setTimeLeft(selectedDifficulty === 'hard' ? 20 : selectedDifficulty === 'medium' ? 25 : 30);
-        } else {
-          setPhase('results');
-          boostRank(selectedDifficulty === 'hard' ? 25 : selectedDifficulty === 'medium' ? 15 : 10);
-          setQuizScores({ iq: scores.iq + (isCorrect && currentSection === 'iq' ? 1 : 0), eq: scores.eq + (isCorrect && currentSection === 'eq' ? 1 : 0), rq: scores.rq + (isCorrect && currentSection === 'rq' ? 1 : 0) });
-        }
-      }
-    }, 1500);
-  }, [showFeedback, currentQ, currentSection, currentQuestion, sectionQuestions.length, sections, boostRank, selectedDifficulty, scores, setQuizScores]);
+  }, [showFeedback, currentQuestion, currentSection]);
 
   const totalQs = sectionQuestions.length * 3;
   const totalCorrect = scores.iq + scores.eq + scores.rq;
@@ -195,7 +195,6 @@ export default function Quizzes() {
     { subject: 'EQ', A: aScore },
   ];
 
-  // Select quiz type
   if (phase === 'select') {
     return (
       <div className="max-w-4xl space-y-6 animate-fade-in">
@@ -222,7 +221,6 @@ export default function Quizzes() {
     );
   }
 
-  // Difficulty selection
   if (phase === 'difficulty') {
     return (
       <div className="max-w-lg mx-auto space-y-6 animate-fade-in">
@@ -248,7 +246,6 @@ export default function Quizzes() {
     );
   }
 
-  // Topic selection
   if (phase === 'topic') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={() => setPhase('select')}>
@@ -272,7 +269,7 @@ export default function Quizzes() {
     );
   }
 
-  // Quiz playing
+  // Quiz playing with explanations
   if (phase === 'playing' && currentQuestion) {
     const totalQsPlayed = sections.indexOf(currentSection) * sectionQuestions.length + currentQ;
     const overallProgress = (totalQsPlayed / (sectionQuestions.length * 3)) * 100;
@@ -324,6 +321,22 @@ export default function Quizzes() {
               );
             })}
           </div>
+
+          {/* Explanation */}
+          {showExplanation && currentQuestion.explanation && (
+            <div className="mt-4 p-4 rounded-xl bg-accent/5 border border-accent/20 animate-fade-in">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-accent mb-1">{isHi ? 'व्याख्या' : 'Explanation'}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{currentQuestion.explanation}</p>
+                </div>
+              </div>
+              <button onClick={proceedToNext} className="mt-3 w-full py-2 rounded-lg bg-accent text-accent-foreground text-xs font-medium hover:scale-[1.01] transition-transform flex items-center justify-center gap-1">
+                {isHi ? 'अगला प्रश्न' : 'Next Question'} <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3">
