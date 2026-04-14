@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
 import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Check, X, Brain, Trophy, Medal, PieChart, Plus, Trash2, BarChart3, Search, Loader2, BookOpen, ArrowRight, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { streamChat } from '@/lib/ai';
+import { supabase } from '@/integrations/supabase/client';
 import heroImg from '@/assets/hero-study.jpg';
 
 export default function Home() {
