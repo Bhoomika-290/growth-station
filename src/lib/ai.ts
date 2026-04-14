@@ -1,4 +1,4 @@
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+import { getToken } from './auth';
 
 export type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -12,12 +12,13 @@ interface StreamOptions {
 }
 
 export async function streamChat({ messages, mode, context, onDelta, onDone, onError }: StreamOptions) {
-  const resp = await fetch(CHAT_URL, {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const resp = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
+    headers,
     body: JSON.stringify({ messages, mode, context }),
   });
 
@@ -65,7 +66,6 @@ export async function streamChat({ messages, mode, context, onDelta, onDone, onE
     }
   }
 
-  // Final flush
   if (textBuffer.trim()) {
     for (let raw of textBuffer.split('\n')) {
       if (!raw) continue;
@@ -78,7 +78,7 @@ export async function streamChat({ messages, mode, context, onDelta, onDone, onE
         const parsed = JSON.parse(jsonStr);
         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
         if (content) onDelta(content);
-      } catch { /* ignore */ }
+      } catch { }
     }
   }
 

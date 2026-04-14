@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { signIn, signUp } from '@/lib/auth';
 import { ArrowRight, Mail, Lock, User, Loader2 } from 'lucide-react';
 
 export default function Auth() {
@@ -17,19 +17,17 @@ export default function Auth() {
     setLoading(true);
     setError('');
 
-    if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { setError(error.message); setLoading(false); return; }
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { name } },
-      });
-      if (error) { setError(error.message); setLoading(false); return; }
+    try {
+      if (isLogin) {
+        await signIn(email, password);
+      } else {
+        await signUp(email, password, name);
+      }
+      navigate('/login');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
     }
     setLoading(false);
-    navigate('/login');
   };
 
   return (
