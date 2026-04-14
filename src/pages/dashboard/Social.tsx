@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
 import { Users, TrendingUp, MapPin, Trophy, Send, Heart, MessageCircle, Share2, UserPlus, X, Medal } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+
 
 interface Post {
   id: number;
@@ -55,30 +55,22 @@ export default function Social() {
   const [chatInput, setChatInput] = useState('');
   const [following, setFollowing] = useState<Set<string>>(new Set());
 
-  // Real-time leaderboard from DB — same as Home
+  // Leaderboard from server API
   const [dbLeaderboard, setDbLeaderboard] = useState<{ name: string; score: number; city: string }[]>([]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, score, city')
-        .order('score', { ascending: false })
-        .limit(10);
-      if (data && data.length > 0) {
-        setDbLeaderboard(data.map(d => ({ name: d.name || 'Anonymous', score: d.score || 0, city: d.city || '' })));
-      }
+      try {
+        const res = await fetch('/api/leaderboard');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setDbLeaderboard(data.map((d: any) => ({ name: d.name || 'Anonymous', score: d.score || 0, city: d.city || '' })));
+          }
+        }
+      } catch { }
     };
     fetchLeaderboard();
-
-    const channel = supabase
-      .channel('social-leaderboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchLeaderboard();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const leaderboard = useMemo(() => {

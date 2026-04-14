@@ -184,6 +184,20 @@ Tailor it specifically to the details provided.`;
   }
 });
 
+// Leaderboard route
+app.get('/api/leaderboard', async (_req, res) => {
+  try {
+    const top = await db.select({
+      name: users.name,
+      score: users.score,
+      city: users.city,
+    }).from(users).orderBy(users.score).limit(10);
+    res.json(top.reverse());
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Serve static frontend in production
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));

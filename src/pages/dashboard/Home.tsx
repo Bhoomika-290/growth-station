@@ -4,7 +4,6 @@ import { TrendingUp, Flame, CheckCircle, Target, Zap, ChevronRight, Square, Chec
 import { useNavigate } from 'react-router-dom';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { streamChat } from '@/lib/ai';
-import { supabase } from '@/integrations/supabase/client';
 import heroImg from '@/assets/hero-study.jpg';
 
 export default function Home() {
@@ -62,30 +61,22 @@ export default function Home() {
     ];
   }, [domain]);
 
-  // Real-time leaderboard from DB
+  // Leaderboard from server API
   const [dbLeaderboard, setDbLeaderboard] = useState<{ name: string; score: number; city: string }[]>([]);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, score, city')
-        .order('score', { ascending: false })
-        .limit(10);
-      if (data && data.length > 0) {
-        setDbLeaderboard(data.map(d => ({ name: d.name || 'Anonymous', score: d.score || 0, city: d.city || '' })));
-      }
+      try {
+        const res = await fetch('/api/leaderboard');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setDbLeaderboard(data.map((d: any) => ({ name: d.name || 'Anonymous', score: d.score || 0, city: d.city || '' })));
+          }
+        }
+      } catch { }
     };
     fetchLeaderboard();
-
-    const channel = supabase
-      .channel('leaderboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchLeaderboard();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const leaderboard = useMemo(() => {
