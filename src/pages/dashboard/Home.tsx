@@ -61,6 +61,26 @@ export default function Home() {
     ];
   }, [domain]);
 
+  // Personality check state
+  const [pcOpen, setPcOpen] = useState(false);
+  const [pcStep, setPcStep] = useState(0);
+  const [pcAnswers, setPcAnswers] = useState<number[]>(Array(5).fill(-1));
+  const [pcDone, setPcDone] = useState(false);
+
+  const personalityQs = [
+    { q: 'You receive conflicting instructions from two seniors. You:', opts: ['Follow the senior one', 'Ask both to align', 'Use your own judgment', 'Escalate higher'] },
+    { q: 'You have 2 hours to learn something new. You:', opts: ['Watch a video tutorial', 'Read documentation', 'Try building immediately', 'Find a mentor'] },
+    { q: 'A teammate is struggling. You:', opts: ['Offer help proactively', 'Wait for them to ask', 'Take over their part', 'Suggest they ask the lead'] },
+    { q: 'Under extreme deadline pressure, you:', opts: ['Stay calm, prioritize', 'Work overtime', 'Cut scope strategically', 'Ask for extension'] },
+    { q: 'Your biggest strength is:', opts: ['Analytical thinking', 'Communication', 'Creativity', 'Persistence'] },
+  ];
+
+  const handlePcAnswer = (oi: number) => {
+    const a = [...pcAnswers]; a[pcStep] = oi; setPcAnswers(a);
+    if (pcStep < personalityQs.length - 1) { setTimeout(() => setPcStep(pcStep + 1), 280); }
+    else { setPcDone(true); }
+  };
+
   // Leaderboard from server API
   const [dbLeaderboard, setDbLeaderboard] = useState<{ name: string; score: number; city: string }[]>([]);
 
@@ -252,6 +272,93 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
             <p className="text-sm text-primary-foreground/70 mt-1 max-w-md">{isHi ? config.affirmationHi : config.affirmation}</p>
           </div>
         </div>
+      </div>
+
+      {/* Personality Check Widget */}
+      <div className="bg-gradient-to-br from-accent/10 via-accent/5 to-transparent rounded-2xl border border-accent/20 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-accent/20 flex items-center justify-center">
+              <Brain className="w-4 h-4 text-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">
+                {isHi ? 'व्यक्तित्व जांच' : 'Personality Check'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {pcDone
+                  ? (isHi ? '✅ पूरा हो गया! आपका स्कोर अपडेट हो गया।' : '✅ Completed! Your personality score is updated.')
+                  : (isHi ? 'अपना व्यक्तित्व जानें — 5 तेज़ सवाल' : 'Discover your profile — 5 quick questions')}
+              </p>
+            </div>
+          </div>
+          {!pcDone && (
+            <button
+              onClick={() => setPcOpen(v => !v)}
+              data-testid="button-personality-check"
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${pcOpen ? 'bg-accent text-accent-foreground border-accent' : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'}`}
+            >
+              {pcOpen ? (isHi ? 'बंद करें' : 'Close') : (isHi ? 'शुरू करें' : 'Start Quiz')}
+            </button>
+          )}
+          {pcDone && (
+            <button
+              onClick={() => { setPcOpen(false); setPcStep(0); setPcAnswers(Array(5).fill(-1)); setPcDone(false); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted text-muted-foreground border border-border hover:text-foreground transition-colors"
+            >
+              {isHi ? 'फिर से करें' : 'Retake'}
+            </button>
+          )}
+        </div>
+
+        {/* Progress pills */}
+        <div className="flex gap-1.5 mb-3">
+          {personalityQs.map((_, i) => (
+            <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+              pcAnswers[i] >= 0 ? 'bg-accent' : i === pcStep && pcOpen ? 'bg-accent/40' : 'bg-border'
+            }`} />
+          ))}
+        </div>
+
+        {/* Question + answers (expandable) */}
+        {pcOpen && !pcDone && (
+          <div className="animate-fade-in" key={pcStep}>
+            <p className="text-sm font-medium mb-3 text-foreground">{personalityQs[pcStep].q}</p>
+            <div className="flex flex-wrap gap-2">
+              {personalityQs[pcStep].opts.map((opt, oi) => (
+                <button
+                  key={oi}
+                  onClick={() => handlePcAnswer(oi)}
+                  data-testid={`button-pc-option-${oi}`}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-all ${
+                    pcAnswers[pcStep] === oi
+                      ? 'bg-accent text-accent-foreground border-accent shadow-sm'
+                      : 'bg-background border-border text-muted-foreground hover:border-accent/50 hover:text-foreground hover:bg-accent/5'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-3">
+              {isHi ? `प्रश्न ${pcStep + 1} / ${personalityQs.length}` : `Question ${pcStep + 1} of ${personalityQs.length}`}
+            </p>
+          </div>
+        )}
+
+        {pcDone && (
+          <div className="flex flex-wrap gap-2 animate-fade-in">
+            {[
+              { label: isHi ? 'विश्लेषण' : 'Analytical', val: 72, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+              { label: isHi ? 'भावनात्मक' : 'Emotional IQ', val: 68, color: 'text-green-600 bg-green-50 border-green-200' },
+              { label: isHi ? 'लचीलापन' : 'Resilience', val: 75, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+            ].map(s => (
+              <div key={s.label} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${s.color}`}>
+                <Sparkles className="w-3 h-3" /> {s.label}: {s.val}%
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stats Row */}

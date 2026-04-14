@@ -35,6 +35,10 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+export function removeToken() {
+  clearSession();
+}
+
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const token = getToken();
   const headers: Record<string, string> = {
