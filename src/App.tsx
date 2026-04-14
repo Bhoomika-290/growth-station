@@ -7,6 +7,7 @@ import { useStationStore } from "@/store/useStationStore";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/dashboard/Home";
@@ -45,6 +46,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/dashboard" element={<Dashboard />}>
               <Route index element={<Home />} />
