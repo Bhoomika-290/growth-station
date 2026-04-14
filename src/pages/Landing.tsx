@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Users, Award, Cpu, Landmark, BookOpen } from 'lucide-react';
+import { ArrowRight, TrendingUp, Users, Award, Cpu, Landmark, BookOpen, LogIn } from 'lucide-react';
 import { useStationStore, type Domain } from '@/store/useStationStore';
 
 const tickerMessages = [
@@ -33,8 +33,23 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* Nav */}
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <h2 className="text-xl font-bold">Station</h2>
+        <div className="flex gap-3">
+          <button onClick={() => navigate('/auth')}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">
+            <LogIn className="w-4 h-4" /> Login
+          </button>
+          <button onClick={() => navigate('/auth')}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover-scale">
+            Get Started <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {/* Hero */}
-      <div className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center animate-slide-up">
+      <div className="max-w-6xl mx-auto px-6 pt-12 pb-16 text-center animate-slide-up">
         <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
           Find Your <span className="text-accent">Station</span>
         </h1>
@@ -42,7 +57,7 @@ export default function Landing() {
           AI-powered placement readiness. From your current level to job-ready — personalized for your domain, city, and ambition.
         </p>
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/auth')}
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-accent text-accent-foreground font-semibold text-lg hover-scale shadow-lg"
         >
           Find Your Station <ArrowRight className="w-5 h-5" />
@@ -54,7 +69,7 @@ export default function Landing() {
         {domains.map((d) => (
           <button
             key={d.id}
-            onClick={() => { setDomain(d.id); navigate('/login'); }}
+            onClick={() => { setDomain(d.id); navigate('/auth'); }}
             className="group bg-card rounded-2xl p-8 text-left border border-border hover:border-accent transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
           >
             <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center mb-4 group-hover:bg-accent group-hover:text-accent-foreground transition-colors">

@@ -4,6 +4,27 @@ import { Building, ArrowRight, ChevronLeft, Target, AlertCircle, ExternalLink, T
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const companyLogos: Record<string, string> = {
+  'TCS': 'https://logo.clearbit.com/tcs.com',
+  'Infosys': 'https://logo.clearbit.com/infosys.com',
+  'Wipro': 'https://logo.clearbit.com/wipro.com',
+  'Google': 'https://logo.clearbit.com/google.com',
+  'Microsoft': 'https://logo.clearbit.com/microsoft.com',
+  'Amazon': 'https://logo.clearbit.com/amazon.com',
+  'SBI': 'https://logo.clearbit.com/sbi.co.in',
+  'HDFC Bank': 'https://logo.clearbit.com/hdfcbank.com',
+  'ICICI': 'https://logo.clearbit.com/icicibank.com',
+  'RBI': 'https://logo.clearbit.com/rbi.org.in',
+  'NABARD': 'https://logo.clearbit.com/nabard.org',
+  'Kotak': 'https://logo.clearbit.com/kotak.com',
+  'IAS': 'https://logo.clearbit.com/upsc.gov.in',
+  'IPS': 'https://logo.clearbit.com/upsc.gov.in',
+  'IFS': 'https://logo.clearbit.com/upsc.gov.in',
+  'IRS': 'https://logo.clearbit.com/upsc.gov.in',
+  'IRTS': 'https://logo.clearbit.com/upsc.gov.in',
+  'State PCS': 'https://logo.clearbit.com/upsc.gov.in',
+};
+
+const companyEmojis: Record<string, string> = {
   'TCS': '🏢', 'Infosys': '🔷', 'Wipro': '🌸', 'Google': '🔍', 'Microsoft': '🪟', 'Amazon': '📦',
   'SBI': '🏦', 'HDFC Bank': '🏦', 'ICICI': '🏦', 'RBI': '🏛️', 'NABARD': '🌾', 'Kotak': '🏦',
   'IAS': '🏛️', 'IPS': '🛡️', 'IFS': '🌐', 'IRS': '💰', 'IRTS': '🚂', 'State PCS': '🏛️',
@@ -14,12 +35,26 @@ const difficultyMap: Record<string, { label: string; color: string }> = {
   'Microsoft': { label: 'HIGH', color: 'text-destructive' },
   'Amazon': { label: 'HIGH', color: 'text-destructive' },
   'TCS': { label: 'LOW', color: 'text-accent' },
-  'Infosys': { label: 'MEDIUM', color: 'hsl(42 80% 50%)' },
+  'Infosys': { label: 'MEDIUM', color: 'text-muted-foreground' },
   'Wipro': { label: 'LOW', color: 'text-accent' },
   'RBI': { label: 'HIGH', color: 'text-destructive' },
   'IAS': { label: 'HIGH', color: 'text-destructive' },
   'IPS': { label: 'HIGH', color: 'text-destructive' },
 };
+
+function CompanyLogo({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const [imgError, setImgError] = useState(false);
+  const sizeMap = { sm: 'w-8 h-8', md: 'w-12 h-12', lg: 'w-16 h-16' };
+  const url = companyLogos[name];
+
+  if (!url || imgError) {
+    return <span className={`${sizeMap[size]} flex items-center justify-center text-2xl`}>{companyEmojis[name] || '🏢'}</span>;
+  }
+  return (
+    <img src={url} alt={`${name} logo`} className={`${sizeMap[size]} rounded-xl object-contain bg-background p-1 border border-border`}
+      onError={() => setImgError(true)} loading="lazy" />
+  );
+}
 
 export default function Companies() {
   const { domain, user, tasksDone } = useStationStore();
@@ -58,9 +93,8 @@ export default function Companies() {
           <ChevronLeft className="w-4 h-4" /> {isHi ? 'सभी कंपनियां' : 'All Companies'}
         </button>
 
-        {/* Company Header */}
         <div className="bg-card rounded-2xl border border-border p-6 flex items-center gap-6">
-          <span className="text-5xl">{companyLogos[selected] || '🏢'}</span>
+          <CompanyLogo name={selected} size="lg" />
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{selected}</h1>
             <div className="flex gap-2 mt-2">
@@ -79,7 +113,6 @@ export default function Companies() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Left: Interview Process + Recent Questions */}
           <div className="md:col-span-2 space-y-6">
             <div className="bg-card rounded-2xl border border-border p-6">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -106,7 +139,6 @@ export default function Companies() {
               </div>
             </div>
 
-            {/* Targeted Roadmap */}
             <div className="bg-card rounded-2xl border border-border p-6">
               <h2 className="text-lg font-bold mb-1">{isHi ? 'लक्षित रोडमैप' : 'Targeted Roadmap'}</h2>
               <p className="text-sm text-muted-foreground mb-4">{isHi ? `${selected} क्रैक करने का AI-जनित मार्ग` : `AI-generated path to crack ${selected}.`}</p>
@@ -133,7 +165,6 @@ export default function Companies() {
             </div>
           </div>
 
-          {/* Right: Readiness + Skill Gaps */}
           <div className="space-y-6">
             <div className="bg-card rounded-2xl border border-border p-6 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">{isHi ? 'आपकी तैयारी' : 'Your Readiness'}</p>
@@ -152,7 +183,7 @@ export default function Companies() {
               </div>
               <p className="text-xs text-muted-foreground mt-3">
                 {readiness < 40 ? (isHi ? 'और अभ्यास की ज़रूरत है' : 'Focus on the missing skills below.') :
-                 readiness < 70 ? (isHi ? 'अच्छी प्रगति हो रही है' : "You're getting there. Focus on the missing skills below.") :
+                 readiness < 70 ? (isHi ? 'अच्छी प्रगति हो रही है' : "You're getting there.") :
                  (isHi ? 'बहुत अच्छी तैयारी' : 'Strong preparation. Keep polishing.')}
               </p>
             </div>
@@ -184,7 +215,6 @@ export default function Companies() {
     );
   }
 
-  // Grid view
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold">{isHi ? 'कंपनियां' : 'Companies'}</h1>
@@ -199,7 +229,7 @@ export default function Companies() {
           return (
             <div key={name} className="bg-card rounded-2xl border border-border p-6 hover:border-accent/50 transition-all">
               <div className="flex items-start justify-between mb-4">
-                <span className="text-3xl">{companyLogos[name] || '🏢'}</span>
+                <CompanyLogo name={name} />
                 {diff && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                     diff.label === 'HIGH' ? 'bg-destructive/10 text-destructive' :
