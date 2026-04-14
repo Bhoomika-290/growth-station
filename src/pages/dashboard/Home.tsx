@@ -62,7 +62,48 @@ export default function Home() {
     ];
   }, [domain]);
 
+  // Real-time leaderboard from DB
+  const [dbLeaderboard, setDbLeaderboard] = useState<{ name: string; score: number; city: string }[]>([]);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('name, score, city')
+        .order('score', { ascending: false })
+        .limit(10);
+      if (data && data.length > 0) {
+        setDbLeaderboard(data.map(d => ({ name: d.name || 'Anonymous', score: d.score || 0, city: d.city || '' })));
+      }
+    };
+    fetchLeaderboard();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel('leaderboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchLeaderboard();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const leaderboard = useMemo(() => {
+    // If we have DB data, use it; otherwise fall back to generated data
+    if (dbLeaderboard.length > 0) {
+      const entries = dbLeaderboard.map(d => ({ name: d.name, score: d.score, locality: d.city || user?.city || 'Your Area' }));
+      // Ensure current user is in the list
+      const userName = user?.name || 'You';
+      if (!entries.find(e => e.name === userName)) {
+        const userScore = 100 + tasksDone * 5;
+        entries.push({ name: userName, score: userScore, locality: user?.city || 'Your Area' });
+        entries.sort((a, b) => b.score - a.score);
+      }
+      return entries.slice(0, 8);
+    }
+
+    // Fallback dummy data
     const names = domain === 'engineering'
       ? ['Aarav S.', 'Priya M.', 'Rohit K.', 'Sneha J.', 'Vikram T.', 'Ananya R.', 'Karan P.', 'Neha G.']
       : domain === 'commerce'
@@ -74,7 +115,7 @@ export default function Home() {
     entries.push({ name: user?.name || 'You', score: userScore, locality: user?.city || 'Your Area' });
     entries.sort((a, b) => b.score - a.score);
     return entries.slice(0, 8);
-  }, [domain, rank, totalStudents, user, tasksDone]);
+  }, [domain, rank, totalStudents, user, tasksDone, dbLeaderboard]);
 
   const toggleTodo = (i: number) => {
     const n = [...todoChecked];
