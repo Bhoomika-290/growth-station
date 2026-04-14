@@ -1,15 +1,89 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStationStore, domainConfig, type Domain } from '@/store/useStationStore';
-import { Cpu, Landmark, BookOpen, ArrowRight, Globe } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Cpu, Landmark, BookOpen, ArrowRight, Globe, Mail, Lock, User, Loader2, LogIn } from 'lucide-react';
 
 const domainIcons = { engineering: Cpu, commerce: Landmark, arts: BookOpen };
 
 export default function Login() {
   const navigate = useNavigate();
-  const { domain, setDomain, language, setLanguage } = useStationStore();
+  const { domain, setDomain, language, setLanguage, login } = useStationStore();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const isHi = language === 'hi';
+
+  // Check existing session
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await loadProfileAndNavigate(session.user.id);
+      }
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await loadProfileAndNavigate(session.user.id);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadProfileAndNavigate = async (userId: string) => {
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (profile) {
+      login({
+        name: profile.name || 'Student',
+        state: '',
+        city: profile.city || '',
+        college: profile.college || '',
+        domain: (profile.domain as Domain) || 'engineering',
+        specialization: profile.specialization || '',
+        year: '',
+        dreamCompany: profile.dream_company || '',
+        dreamJob: '',
+        targetSalary: '',
+        timeline: '',
+        personalityScore: { iq: 50, eq: 50, rq: 50 },
+        weakPoints: [],
+      });
+      navigate('/dashboard');
+    } else {
+      navigate('/onboarding', { state: { name: 'Student' } });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (isLogin) {
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      if (err) { setError(err.message); setLoading(false); return; }
+    } else {
+      if (!name.trim()) { setError('Please enter your name'); setLoading(false); return; }
+      const { error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name, domain } },
+      });
+      if (err) { setError(err.message); setLoading(false); return; }
+
+      // Update profile with domain info
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.from('profiles').update({ domain, name }).eq('id', session.user.id);
+      }
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -28,38 +102,70 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm animate-slide-up">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">{isHi ? 'Station में आपका स्वागत है' : 'Welcome to Station'}</h1>
+            <h1 className="text-2xl font-bold">{isLogin ? (isHi ? 'वापसी पर स्वागत है' : 'Welcome Back') : (isHi ? 'Station में शामिल हों' : 'Join Station')}</h1>
             <button onClick={() => setLanguage(isHi ? 'en' : 'hi')}
               className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted text-xs text-muted-foreground hover:text-foreground">
               <Globe className="w-3 h-3" /> {isHi ? 'EN' : 'हि'}
             </button>
           </div>
-          <p className="text-muted-foreground text-sm mb-8">{isHi ? 'अपना डोमेन चुनें और शुरू करने के लिए अपना नाम दर्ज करें' : 'Choose your domain & enter your name to begin'}</p>
+          <p className="text-muted-foreground text-sm mb-6">
+            {isLogin ? (isHi ? 'अपनी तैयारी जारी रखने के लिए साइन इन करें' : 'Sign in to continue your preparation') :
+              (isHi ? 'अपना डोमेन चुनें और खाता बनाएं' : 'Choose your domain and create an account')}
+          </p>
 
-          <div className="flex gap-2 mb-6">
-            {(['engineering', 'commerce', 'arts'] as Domain[]).map((d) => {
-              const Icon = domainIcons[d];
-              return (
-                <button key={d} onClick={() => setDomain(d)}
-                  className={`flex-1 py-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium border transition-all ${
-                    domain === d ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted-foreground hover:border-accent/50'
-                  }`}>
-                  <Icon className="w-5 h-5" />
-                  {isHi ? domainConfig[d].labelHi : domainConfig[d].label}
-                </button>
-              );
-            })}
-          </div>
+          {error && (
+            <div className="mb-4 p-3 rounded-xl bg-destructive/10 text-destructive text-xs text-center">{error}</div>
+          )}
 
-          <input type="text" placeholder={isHi ? 'आपका पूरा नाम' : 'Your full name'} value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground mb-4 focus:outline-none focus:ring-2 focus:ring-accent" />
+          {/* Domain selector (only for signup) */}
+          {!isLogin && (
+            <div className="flex gap-2 mb-4">
+              {(['engineering', 'commerce', 'arts'] as Domain[]).map((d) => {
+                const Icon = domainIcons[d];
+                return (
+                  <button key={d} onClick={() => setDomain(d)}
+                    className={`flex-1 py-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium border transition-all ${
+                      domain === d ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted-foreground hover:border-accent/50'
+                    }`}>
+                    <Icon className="w-5 h-5" />
+                    {isHi ? domainConfig[d].labelHi : domainConfig[d].label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          <button onClick={() => name.trim() && navigate('/onboarding', { state: { name } })}
-            disabled={!name.trim()}
-            className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-semibold flex items-center justify-center gap-2 hover-scale disabled:opacity-40">
-            {isHi ? 'सेटअप जारी रखें' : 'Continue to Setup'} <ArrowRight className="w-4 h-4" />
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {!isLogin && (
+              <div className="relative">
+                <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                <input type="text" placeholder={isHi ? 'आपका पूरा नाम' : 'Full Name'} value={name} onChange={e => setName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent" required />
+              </div>
+            )}
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <input type="email" placeholder={isHi ? 'ईमेल' : 'Email'} value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent" required />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <input type="password" placeholder={isHi ? 'पासवर्ड' : 'Password'} value={password} onChange={e => setPassword(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent" required minLength={6} />
+            </div>
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl bg-accent text-accent-foreground font-semibold flex items-center justify-center gap-2 hover-scale disabled:opacity-50">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isLogin ? <LogIn className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+              {isLogin ? (isHi ? 'साइन इन' : 'Sign In') : (isHi ? 'खाता बनाएं' : 'Create Account')}
+            </button>
+          </form>
+
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            {isLogin ? (isHi ? 'खाता नहीं है?' : "Don't have an account?") : (isHi ? 'पहले से खाता है?' : 'Already have an account?')}{' '}
+            <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-accent font-medium hover:underline">
+              {isLogin ? (isHi ? 'साइन अप' : 'Sign Up') : (isHi ? 'साइन इन' : 'Sign In')}
+            </button>
+          </p>
         </div>
       </div>
     </div>
